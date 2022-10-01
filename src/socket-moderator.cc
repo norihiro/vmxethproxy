@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <limits>
 #include <sys/types.h>
+#include <signal.h>
 #include "vmxethproxy.h"
 #include "socket-moderator.h"
 
@@ -54,6 +55,8 @@ int socket_moderator_mainloop(socket_moderator_t *s)
 {
 	bool cont = true;
 
+	signal(SIGPIPE, SIG_IGN);
+
 	while (cont) {
 		fd_set read_fds, write_fds, except_fds;
 		FD_ZERO(&read_fds);
@@ -91,8 +94,10 @@ int socket_moderator_mainloop(socket_moderator_t *s)
 				continue;
 			if (info.info->process) {
 				int ret = info.info->process(&read_fds, &write_fds, &except_fds, info.data);
-				if (ret)
+				if (ret) {
+					fprintf(stderr, "Info: exiting requested by %p\n", info.data);
 					cont = false;
+				}
 			}
 		}
 

@@ -171,7 +171,7 @@ static void process_udp(struct vmxserver_s *s)
 		return;
 	}
 
-	size = send(sock_tcp, peer0_0, 84, 0);
+	size = send(sock_tcp, peer0_0, 84, MSG_NOSIGNAL);
 	if (size != 84) {
 		perror("send");
 	}

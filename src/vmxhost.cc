@@ -4,8 +4,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <vector>
 #include "vmxethproxy.h"
+#include "vmxpacket.h"
 #include "vmxhost.h"
+#include "misc.h"
 #include "proxycore.h"
 #include "util/platform.h"
 #include "socket-moderator.h"
@@ -13,8 +16,10 @@
 struct vmxhost_s
 {
 	int sock = -1;
-
+	proxycore_t *proxy;
 	uint32_t heartbeat_next_us;
+
+	std::vector<uint8_t> buf_recv;
 
 	bool make_connection();
 };
@@ -130,13 +135,6 @@ vmxhost_t *vmxhost_create()
 	return h;
 }
 
-void vmxhost_destroy(vmxhost_t *h)
-{
-	if (h->sock >= 0)
-		close(h->sock);
-	delete h;
-}
-
 static int vmxhost_set_fds(fd_set *read_fds, fd_set *, fd_set *, void *data)
 {
 	auto h = (struct vmxhost_s *)data;
@@ -178,6 +176,35 @@ static uint32_t vmxhost_timeout_us(void *data)
 	return until_hb_us;
 }
 
+static int process_received(struct vmxhost_s *h)
+{
+	vmxpacket_t pkt;
+	int consumed = parse_tcp_stream(&pkt, &h->buf_recv[0], h->buf_recv.size());
+	if (consumed == 0)
+		return 0;
+	if (consumed < 0) {
+		fprintf(stderr, "Error: error to process data %02x %02x %02x %02x, size=%d. Closing...\n",
+			(int)h->buf_recv.size(), h->buf_recv.size() > 0 ? h->buf_recv[0] : 0,
+			h->buf_recv.size() > 1 ? h->buf_recv[1] : 0, h->buf_recv.size() > 2 ? h->buf_recv[2] : 0,
+			h->buf_recv.size() > 3 ? h->buf_recv[3] : 0);
+		close(h->sock);
+		h->sock = -1;
+		return -1;
+	}
+
+	h->buf_recv.erase(h->buf_recv.begin(), h->buf_recv.begin() + consumed);
+
+	if (pkt.raw.size() == 0 && pkt.midi.size() == 0)
+		return 0;
+
+	proxycore_process_packet(h->proxy, &pkt, h, PROXYCORE_INSTANCE_HOST);
+
+	if (consumed > 0 && h->buf_recv.size() > 0)
+		return process_received(h);
+
+	return 0;
+}
+
 static int vmxhost_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 {
 	auto h = (struct vmxhost_s *)data;
@@ -187,16 +214,20 @@ static int vmxhost_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 	if (!FD_ISSET(h->sock, read_fds))
 		return 0;
 
-	// TODO: receive packet and process it.
+	if (!recv_stream(h->sock, h->buf_recv))
+		return 0;
 
-	return 0;
+	return process_received(h);
 }
 
 static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 {
 	auto h = (struct vmxhost_s *)data;
 
-	(void)h, (void)packet; // TODO: implement me
+	if (!send_stream(h->sock, packet)) {
+		close(h->sock);
+		h->sock = -1;
+	}
 }
 
 static struct socket_info_s socket_info = {
@@ -207,6 +238,15 @@ static struct socket_info_s socket_info = {
 
 void vmxhost_start(vmxhost_t *h, socket_moderator_t *s, proxycore_t *p)
 {
+	h->proxy = p;
 	socket_moderator_add(s, &socket_info, h);
 	proxycore_add_instance(p, proxy_callback, h, PROXYCORE_INSTANCE_HOST);
+}
+
+void vmxhost_destroy(vmxhost_t *h)
+{
+	proxycore_remove_instance(h->proxy, proxy_callback, h);
+	if (h->sock >= 0)
+		close(h->sock);
+	delete h;
 }
