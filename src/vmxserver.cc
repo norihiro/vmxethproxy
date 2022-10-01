@@ -45,7 +45,7 @@ vmxserver_t *vmxserver_create()
 	struct sockaddr_in me;
 	memset(&me, 0, sizeof(me));
 	socklen_t len = sizeof(me);
-	getsockname(s->sock, (sockaddr*)&me, &len);
+	getsockname(s->sock, (sockaddr *)&me, &len);
 	s->port_listening = ntohs(me.sin_port);
 
 	s->sock_udp = socket(AF_INET, SOCK_DGRAM, 0);
@@ -53,7 +53,7 @@ vmxserver_t *vmxserver_create()
 	struct sockaddr_in addr_udp;
 	memset(&addr_udp, 0, sizeof(addr_udp));
 	addr_udp.sin_port = htons(9314);
-	int ret = bind(s->sock_udp, (const sockaddr*)&addr_udp, sizeof(addr_udp));
+	int ret = bind(s->sock_udp, (const sockaddr *)&addr_udp, sizeof(addr_udp));
 	if (ret) {
 		perror("bind 9314/udp");
 		vmxserver_destroy(s);
@@ -114,7 +114,7 @@ static void process_connection(struct vmxserver_s *s)
 	memset(&addr, 0, sizeof(addr));
 	socklen_t len_addr = sizeof(addr);
 
-	int sock = accept(s->sock, (sockaddr*)&addr, &len_addr);
+	int sock = accept(s->sock, (sockaddr *)&addr, &len_addr);
 	if (sock < 0) {
 		perror("accept");
 		return;
@@ -137,13 +137,14 @@ static void process_udp(struct vmxserver_s *s)
 	struct sockaddr_in addr;
 	socklen_t len = sizeof(addr);
 	memset(&addr, 0, len);
-	ssize_t size = recvfrom(s->sock_udp, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &len);
+	ssize_t size = recvfrom(s->sock_udp, buf, sizeof(buf), 0, (struct sockaddr *)&addr, &len);
 	if (size < 8 || memcmp(buf, "RDDPv1", 6) != 0)
 		return;
 
 	uint32_t port = (buf[6] << 8) | buf[7];
 	addr.sin_port = htons(port);
 
+	// clang-format off
 	char peer0_0[] = {
 		0x52, 0x44, 0x44, 0x50, 0x76, 0x31, 0x00, 0x00, 0x00, 0x05, 0x5f, 0x68, 0x03, 0x09, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x52, 0x6f, 0x6c, 0x61, 0x6e, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -151,6 +152,7 @@ static void process_udp(struct vmxserver_s *s)
 		0x31, 0x00, 0x00, 0x00, 0x4d, 0x2d, 0x32, 0x30, 0x30, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00 };
+	// clang-format on
 	peer0_0[6] = s->port_listening >> 8;
 	peer0_0[7] = (s->port_listening & 0xFF);
 	if (s->name.size() > 0)
@@ -162,7 +164,7 @@ static void process_udp(struct vmxserver_s *s)
 		return;
 	}
 
-	int ret = connect(sock_tcp, (const sockaddr*)&addr, sizeof(addr));
+	int ret = connect(sock_tcp, (const sockaddr *)&addr, sizeof(addr));
 	if (ret) {
 		perror("Error: connect tcp");
 		close(sock_tcp);

@@ -11,7 +11,8 @@ struct info_s
 	struct socket_info_s *info;
 	void *data;
 	bool removed;
-	info_s (struct socket_info_s *_info, void *_data) {
+	info_s(struct socket_info_s *_info, void *_data)
+	{
 		info = _info;
 		data = _data;
 		removed = false;
@@ -95,7 +96,7 @@ int socket_moderator_mainloop(socket_moderator_t *s)
 			}
 		}
 
-		for (auto it = s->infos.begin(); it != s->infos.end(); ) {
+		for (auto it = s->infos.begin(); it != s->infos.end();) {
 			auto x = it++;
 			if (x->removed)
 				s->infos.erase(x);

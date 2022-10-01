@@ -26,12 +26,13 @@ static int send_req(const char *host, int port)
 	memset(&addr, 0, sizeof(addr));
 
 	// 0000   52 44 44 50 76 31 c0 c4                           RDDPv1..
-	char peer0_0[] = { 0x52, 0x44, 0x44, 0x50, 0x76, 0x31, (char)(port>>8), (char)port };
+	char peer0_0[] = {0x52, 0x44, 0x44, 0x50, 0x76, 0x31, (char)(port >> 8), (char)port};
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(9314);
-	if(host) addr.sin_addr.s_addr = inet_addr(host);
-	sendto(s, peer0_0, sizeof(peer0_0), 0, (sockaddr*)&addr, sizeof(addr));
+	if (host)
+		addr.sin_addr.s_addr = inet_addr(host);
+	sendto(s, peer0_0, sizeof(peer0_0), 0, (sockaddr *)&addr, sizeof(addr));
 
 	close(s);
 	return 0;
@@ -40,7 +41,7 @@ static int send_req(const char *host, int port)
 static int create_tcp_listen()
 {
 	int s1 = socket(AF_INET, SOCK_STREAM, 0);
-	if(s1 < 0) {
+	if (s1 < 0) {
 		perror("socket");
 		return -1;
 	}
@@ -52,7 +53,7 @@ static int create_tcp_listen()
 
 	struct sockaddr_in me = {0, 0, 0, 0};
 	socklen_t len = sizeof(me);
-	getsockname(s1, (sockaddr*)&me, &len);
+	getsockname(s1, (sockaddr *)&me, &len);
 	int port_listening = ntohs(me.sin_port);
 	// TODO: destination address should be a multicast to this network.
 	// TODO: If there is no response, send request several times.
@@ -60,7 +61,6 @@ static int create_tcp_listen()
 	send_req("255.255.255.255", port_listening);
 	return s1;
 }
-
 
 bool vmxhost_s::make_connection()
 {
@@ -72,7 +72,7 @@ bool vmxhost_s::make_connection()
 	struct sockaddr_in server;
 	memset(&server, 0, sizeof(server));
 	socklen_t len_server = sizeof(server);
-	int sx = accept(sock_listening, (sockaddr*)&server, &len_server);
+	int sx = accept(sock_listening, (sockaddr *)&server, &len_server);
 	if (sx < 0) {
 		perror("accept");
 		return false;
@@ -93,8 +93,9 @@ bool vmxhost_s::make_connection()
 	// 00000040  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00   ........ ........
 	// 00000050  00 00 00 00                                        ....
 	// In this example, then iPad will connect to TCP port 33752 (83D8h).
-	int port = data[6]<<8 | data[7];
-	fprintf(stderr, "Info: vmxhost found '%s' '%s' '%s' '%s'\nConnecting port %d...", data + 0x14, data + 0x24, data + 0x2C, data + 0x34, port);
+	int port = data[6] << 8 | data[7];
+	fprintf(stderr, "Info: vmxhost found '%s' '%s' '%s' '%s'\nConnecting port %d...", data + 0x14, data + 0x24,
+		data + 0x2C, data + 0x34, port);
 
 	server.sin_family = AF_INET;
 	server.sin_port = htons(port);
