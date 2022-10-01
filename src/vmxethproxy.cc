@@ -21,6 +21,7 @@
 #include "socket-moderator.h"
 #include "vmxhost.h"
 #include "vmxserver.h"
+#include "vmxmonitor.h"
 
 int main(int argc, char **argv)
 {
@@ -35,6 +36,8 @@ int main(int argc, char **argv)
 	}
 	socket_moderator_t *s = socket_moderator_create();
 	proxycore_t *p = proxycore_create();
+
+	vmxmonitor_t *monitor = vmxmonitor_create(p);
 
 	vmxserver_t *server_p = vmxserver_create();
 	if (!server_p) {
@@ -53,6 +56,7 @@ int main(int argc, char **argv)
 	vmxserver_destroy(server_p);
 	socket_moderator_destroy(s);
 	vmxhost_destroy(vmxhost);
+	vmxmonitor_destroy(monitor);
 	proxycore_destroy(p);
 
 	return ret;

@@ -17,7 +17,9 @@ add_executable(vmxethproxy
 	src/vmxhost.cc
 	src/vmxserver.cc
 	src/vmxserver-client.cc
+	src/vmxmonitor.cc
 	src/vmxpacket.cc
+	src/vmxpacket-identify.cc
 	src/misc.cc
 	util/os_gettime.c
 )
