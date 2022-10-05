@@ -1,0 +1,13 @@
+{
+	"host": { },
+	"servers": [
+		{
+			"primary": true,
+			"port": 33752
+		},
+		{
+			"primary": false,
+			"port": 33753
+		}
+	]
+}

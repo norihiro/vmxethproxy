@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <vector>
+#include <string>
 #include "vmxethproxy.h"
 #include "vmxpacket.h"
 #include "vmxhost.h"
@@ -21,7 +22,13 @@ struct vmxhost_s
 
 	std::vector<uint8_t> buf_recv;
 
-	bool make_connection();
+	bool connect_autodiscovery();
+	bool connect_manual();
+
+	// config
+	std::string bcast_discovery;
+	std::string host_manual;
+	int port_manual;
 };
 
 static int send_req(const char *host, int port)
@@ -43,7 +50,7 @@ static int send_req(const char *host, int port)
 	return 0;
 }
 
-static int create_tcp_listen()
+static int create_tcp_listen(const char *bcast)
 {
 	int s1 = socket(AF_INET, SOCK_STREAM, 0);
 	if (s1 < 0) {
@@ -63,14 +70,13 @@ static int create_tcp_listen()
 	// TODO: destination address should be a multicast to this network.
 	// TODO: If there is no response, send request several times.
 	// TODO: broad cast address 192.168.124.255 does not work. Checked pcap and nothing was found.
-	send_req("255.255.255.255", port_listening);
+	send_req(bcast, port_listening);
 	return s1;
 }
 
-bool vmxhost_s::make_connection()
+bool vmxhost_s::connect_autodiscovery()
 {
-	// TODO: Below is temporary code. Reorganize them.
-	int sock_listening = create_tcp_listen();
+	int sock_listening = create_tcp_listen(bcast_discovery.c_str());
 	if (!sock_listening)
 		return false;
 
@@ -114,9 +120,37 @@ bool vmxhost_s::make_connection()
 	return true;
 }
 
-vmxhost_t *vmxhost_create()
+bool vmxhost_s::connect_manual()
+{
+	struct sockaddr_in server;
+	memset(&server, 0, sizeof(server));
+
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = inet_addr(host_manual.c_str());
+	server.sin_port = htons(port_manual);
+
+	int ret = connect(sock, (const sockaddr *)&server, sizeof(server));
+	if (ret) {
+		fprintf(stderr, "Error: vmxhost: connect to host '%s' port %d failed: %s\n", host_manual.c_str(),
+			port_manual, strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+void vmxhost_set_prop(vmxhost_t *h, vmx_prop_ref_t prop)
+{
+	h->bcast_discovery = prop.get<std::string>("discovery-broadcast", "255.255.255.255");
+	h->host_manual = prop.get<std::string>("host", "");
+	h->port_manual = prop.get<int>("port", 0);
+}
+
+vmxhost_t *vmxhost_create(vmx_prop_ref_t pt)
 {
 	auto h = new struct vmxhost_s;
+
+	vmxhost_set_prop(h, pt);
 
 	h->sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (h->sock < 0) {
@@ -127,9 +161,17 @@ vmxhost_t *vmxhost_create()
 
 	h->heartbeat_next_us = os_gettime_us();
 
-	if (!h->make_connection()) {
-		vmxhost_destroy(h);
-		return NULL;
+	if (h->host_manual.size() && h->port_manual > 0) {
+		if (!h->connect_manual()) {
+			vmxhost_destroy(h);
+			return NULL;
+		}
+	}
+	else {
+		if (!h->connect_autodiscovery()) {
+			vmxhost_destroy(h);
+			return NULL;
+		}
 	}
 
 	return h;

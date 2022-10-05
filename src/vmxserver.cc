@@ -19,16 +19,28 @@ struct vmxserver_s
 	int sock = -1;
 	int sock_udp = -1;
 	int port_listening = 0;
-	bool primary = 0;
-	std::string name;
-	std::list<vmxserver_client_t *> clients;
+	bool primary = false;
 	proxycore_t *proxy = NULL;
 	socket_moderator_t *ss = NULL;
+
+	// properties
+	std::string name;
+	std::list<vmxserver_client_t *> clients;
+	int port_listen;
 };
 
-vmxserver_t *vmxserver_create()
+void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
+{
+	s->primary = prop.get<bool>("primary", false);
+	s->name = prop.get<std::string>("name", "M-200i-1");
+	s->port_listen = prop.get<int>("port", 0);
+}
+
+vmxserver_t *vmxserver_create(vmx_prop_ref_t prop)
 {
 	auto s = new struct vmxserver_s;
+
+	vmxserver_set_prop(s, prop);
 
 	s->sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (s->sock < 0) {
@@ -40,13 +52,29 @@ vmxserver_t *vmxserver_create()
 	int opt = 1;
 	setsockopt(s->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
 
+	if (s->port_listen > 0) {
+		struct sockaddr_in me;
+		memset(&me, 0, sizeof(me));
+		me.sin_port = htons(s->port_listen);
+		int ret = bind(s->sock, (const sockaddr *)&me, sizeof(me));
+		if (ret) {
+			perror("bind tcp");
+			vmxserver_destroy(s);
+			return NULL;
+		}
+
+		s->port_listening = s->port_listen;
+	}
+
 	listen(s->sock, 1);
 
-	struct sockaddr_in me;
-	memset(&me, 0, sizeof(me));
-	socklen_t len = sizeof(me);
-	getsockname(s->sock, (sockaddr *)&me, &len);
-	s->port_listening = ntohs(me.sin_port);
+	if (s->port_listen <= 0) {
+		struct sockaddr_in me;
+		memset(&me, 0, sizeof(me));
+		socklen_t len = sizeof(me);
+		getsockname(s->sock, (sockaddr *)&me, &len);
+		s->port_listening = ntohs(me.sin_port);
+	}
 
 	s->sock_udp = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -76,16 +104,6 @@ void vmxserver_destroy(vmxserver_t *s)
 	}
 
 	delete s;
-}
-
-void vmxserver_set_primary(vmxserver_t *s, bool primary)
-{
-	s->primary = primary;
-}
-
-void vmxserver_set_name(vmxserver_t *s, const char *name)
-{
-	s->name = name;
 }
 
 static int vmxserver_set_fds(fd_set *read_fds, fd_set *, fd_set *, void *data)

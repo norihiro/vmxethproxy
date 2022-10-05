@@ -16,48 +16,119 @@
  */
 
 #include <stdio.h>
+#include <vector>
 #include "vmxethproxy.h"
 #include "proxycore.h"
 #include "socket-moderator.h"
 #include "vmxhost.h"
 #include "vmxserver.h"
 #include "vmxmonitor.h"
+#include "vmxprop.h"
+
+static bool parse_arguments(vmx_prop_t &pt, int argc, char **argv)
+{
+	const char *config_file = NULL;
+
+	for (int i = 1; i < argc; i++) {
+		char *ai = argv[i];
+		if (ai[0] == '-') {
+			char c;
+			while ((c = *++ai)) {
+				switch (c) {
+				case 'c':
+					if (!config_file && i + 1 < argc)
+						config_file = argv[++i];
+					else {
+						fprintf(stderr, "Error: parsing %s\n", argv[i]);
+						return false;
+					}
+					break;
+				default:
+					fprintf(stderr, "Error: unknown option %c in %s", c, argv[i]);
+					return false;
+				}
+			}
+		}
+	}
+
+	if (config_file) {
+		if (!load_ptree(pt, config_file)) {
+			fprintf(stderr, "Error: loading file '%s'\n", config_file);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+struct main_context_s
+{
+	vmxhost_t *vmxhost = NULL;
+	socket_moderator_t *s = NULL;
+	proxycore_t *p = NULL;
+
+	std::vector<vmxserver_t *> servers;
+};
+
+static bool startup(main_context_s &ctx, vmx_prop_ref_t pt)
+{
+	boost::optional<vmx_prop_t &> pt_vmxhost = pt.get_child_optional("host");
+	if (pt_vmxhost) {
+		ctx.vmxhost = vmxhost_create(*pt_vmxhost);
+		if (!ctx.vmxhost) {
+			fprintf(stderr, "Error: failed to create V-Mixer connection.\n");
+			return false;
+		}
+	}
+
+	boost::optional<vmx_prop_t &> pt_servers = pt.get_child_optional("servers");
+	if (pt_servers) {
+		for (auto &it : *pt_servers) {
+			vmxserver_t *s = vmxserver_create(it.second);
+			ctx.servers.push_back(s);
+		}
+	}
+
+	return true;
+}
 
 int main(int argc, char **argv)
 {
-	(void)argc; // TODO: remove me
-	(void)argv; // TODO: remove me
+	vmx_prop_t pt;
 
-	// TODO: Code below is for developing.
-	vmxhost_t *vmxhost = vmxhost_create();
-	if (!vmxhost) {
-		fprintf(stderr, "Error: failed to create V-Mixer connection.\n");
+	if (!parse_arguments(pt, argc, argv)) {
+		fprintf(stderr, "Error: failed to parse arguments\n");
 		return 1;
 	}
-	socket_moderator_t *s = socket_moderator_create();
-	proxycore_t *p = proxycore_create();
 
-	vmxmonitor_t *monitor = vmxmonitor_create(p);
+	main_context_s ctx;
 
-	vmxserver_t *server_p = vmxserver_create();
-	if (!server_p) {
-		fprintf(stderr, "Error: failed to create listening server.\n");
+	if (!startup(ctx, pt)) {
+		fprintf(stderr, "Error: failed to initialize.\n");
 		return 1;
 	}
-	vmxserver_set_primary(server_p, true);
-	vmxserver_set_name(server_p, "M-200i-1");
 
-	vmxhost_start(vmxhost, s, p);
+	ctx.s = socket_moderator_create();
+	ctx.p = proxycore_create();
 
-	vmxserver_start(server_p, s, p);
+	vmxmonitor_t *monitor = vmxmonitor_create(ctx.p);
 
-	int ret = socket_moderator_mainloop(s);
+	if (ctx.vmxhost)
+		vmxhost_start(ctx.vmxhost, ctx.s, ctx.p);
 
-	vmxserver_destroy(server_p);
-	socket_moderator_destroy(s);
-	vmxhost_destroy(vmxhost);
+	for (vmxserver_t *s : ctx.servers) {
+		vmxserver_start(s, ctx.s, ctx.p);
+	}
+
+	int ret = socket_moderator_mainloop(ctx.s);
+
+	for (vmxserver_t *s : ctx.servers)
+		vmxserver_destroy(s);
+	socket_moderator_destroy(ctx.s);
+	if (ctx.vmxhost)
+		vmxhost_destroy(ctx.vmxhost);
 	vmxmonitor_destroy(monitor);
-	proxycore_destroy(p);
+	proxycore_destroy(ctx.p);
 
 	return ret;
 }
