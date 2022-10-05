@@ -40,6 +40,9 @@ static int send_req(const char *host, int port)
 	// 0000   52 44 44 50 76 31 c0 c4                           RDDPv1..
 	char peer0_0[] = {0x52, 0x44, 0x44, 0x50, 0x76, 0x31, (char)(port >> 8), (char)port};
 
+	int bcast = 1;
+	setsockopt(s, SOL_SOCKET, SO_BROADCAST, (void *)&bcast, sizeof(bcast));
+
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(9314);
 	if (host)
@@ -67,9 +70,7 @@ static int create_tcp_listen(const char *bcast)
 	socklen_t len = sizeof(me);
 	getsockname(s1, (sockaddr *)&me, &len);
 	int port_listening = ntohs(me.sin_port);
-	// TODO: destination address should be a multicast to this network.
 	// TODO: If there is no response, send request several times.
-	// TODO: broad cast address 192.168.124.255 does not work. Checked pcap and nothing was found.
 	send_req(bcast, port_listening);
 	return s1;
 }
