@@ -9,10 +9,10 @@
 
 struct info_s
 {
-	struct socket_info_s *info;
+	const struct socket_info_s *info;
 	void *data;
 	bool removed;
-	info_s(struct socket_info_s *_info, void *_data)
+	info_s(const struct socket_info_s *_info, void *_data)
 	{
 		info = _info;
 		data = _data;
@@ -36,7 +36,7 @@ void socket_moderator_destroy(socket_moderator_t *s)
 	delete s;
 }
 
-void socket_moderator_add(socket_moderator_t *s, struct socket_info_s *info, void *data)
+void socket_moderator_add(socket_moderator_t *s, const struct socket_info_s *info, void *data)
 {
 	s->infos.push_back(info_s(info, data));
 }

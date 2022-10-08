@@ -273,7 +273,7 @@ static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 	}
 }
 
-static struct socket_info_s socket_info = {
+static const struct socket_info_s socket_info = {
 	vmxhost_set_fds,
 	vmxhost_timeout_us,
 	vmxhost_process,

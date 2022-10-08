@@ -212,7 +212,7 @@ static int vmxserver_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 	return 0;
 }
 
-static struct socket_info_s socket_info = {
+static const struct socket_info_s socket_info = {
 	vmxserver_set_fds,
 	NULL, // timeout_us
 	vmxserver_process,

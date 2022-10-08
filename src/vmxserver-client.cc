@@ -26,7 +26,7 @@ static int client_set_fds(fd_set *read_fds, fd_set *, fd_set *, void *data);
 static uint32_t client_timeout_us(void *data);
 static int client_process(fd_set *read_fds, fd_set *, fd_set *, void *data);
 
-static struct socket_info_s socket_info = {
+static const struct socket_info_s socket_info = {
 	client_set_fds,
 	client_timeout_us,
 	client_process,

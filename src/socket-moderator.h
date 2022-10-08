@@ -20,7 +20,7 @@ socket_moderator_t *socket_moderator_create();
 void socket_moderator_destroy(socket_moderator_t *);
 int socket_moderator_mainloop(socket_moderator_t *);
 
-void socket_moderator_add(socket_moderator_t *s, struct socket_info_s *info, void *data);
+void socket_moderator_add(socket_moderator_t *s, const struct socket_info_s *info, void *data);
 void socket_moderator_remove(socket_moderator_t *s, void *data);
 
 #ifdef __cplusplus
