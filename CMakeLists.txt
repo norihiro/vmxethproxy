@@ -10,6 +10,25 @@ configure_file(
     config-macros.h
 )
 
+option(WITH_WEBSOCKETS "Provides websockets to send/receive MIDI" ON)
+
+if(${WITH_WEBSOCKETS})
+	option(LWS_WITH_UPNG "" OFF)
+	option(LWS_WITH_JPEG "" OFF)
+	option(LWS_WITH_DLO "" OFF)
+	option(LWS_WITH_STATIC "" ON)
+	option(LWS_WITH_SHARED "" OFF)
+	option(LWS_STATIC_PIC "" ON)
+	option(LWS_WITHOUT_TESTAPPS "" ON)
+	option(LWS_WITHOUT_TEST_CLIENT "" ON)
+	option(LWS_WITHOUT_TEST_PING "" ON)
+	option(LWS_WITHOUT_TEST_SERVER "" ON)
+	option(LWS_WITHOUT_TEST_SERVER_EXTPOLL "" ON)
+	option(LWS_WITH_MINIMAL_EXAMPLES "" OFF)
+
+	add_subdirectory(libwebsockets)
+endif()
+
 add_executable(vmxethproxy
 	src/vmxethproxy.cc
 	src/proxycore.cc
@@ -24,6 +43,10 @@ add_executable(vmxethproxy
 	src/vmxprop.cc
 	util/os_gettime.c
 )
+
+if(${WITH_WEBSOCKETS})
+	target_link_libraries(vmxethproxy websockets)
+endif()
 
 target_include_directories(vmxethproxy PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 
