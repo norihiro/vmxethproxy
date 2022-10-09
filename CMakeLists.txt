@@ -10,6 +10,7 @@ configure_file(
     config-macros.h
 )
 
+option(WITH_TEST "Test internal libraries" OFF)
 option(WITH_WEBSOCKETS "Provides websockets to send/receive MIDI" ON)
 
 if(${WITH_WEBSOCKETS})
@@ -41,6 +42,7 @@ add_executable(vmxethproxy
 	src/vmxpacket-identify.cc
 	src/misc.cc
 	src/vmxprop.cc
+	src/vmxws.cc
 	util/os_gettime.c
 )
 
@@ -58,4 +60,9 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 	endif()
 else()
 	target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall -Wextra)
+endif()
+
+if(${WITH_TEST})
+	enable_testing()
+	add_subdirectory(test)
 endif()
