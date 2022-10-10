@@ -96,8 +96,32 @@ static bool return_by_proxy(proxycore_t *p, const vmxpacket_t *packet, const voi
 
 static uint32_t determine_receiver_types(proxycore_t *p, const vmxpacket_t *packet, uint32_t sender_flags)
 {
-	(void)p, (void)packet; // TODO: check the contents of the packet
-	bool is_basic = false; // TODO: check the MIDI protocol is
+	(void)p;
+	bool is_basic = false;
+
+	if (vmxpacket_is_midi_dt1(packet)) {
+		int addr = packet->dt_address_aligned();
+		if (addr < 0x10000000)
+			is_basic = true;
+		else if (0x10000000 <= addr && addr < 0x10000004)
+			is_basic = true;
+		else if (0x10000010 <= addr && addr < 0x10000016)
+			is_basic = true;
+		else if (0x10000020 <= addr && addr < 0x10000021)
+			is_basic = true;
+		else if (0x10000022 <= addr && addr < 0x10000026)
+			is_basic = true;
+		else if (0x10000027 <= addr && addr < 0x10000029)
+			is_basic = true;
+		else if (0x10000100 <= addr && addr < 0x10000104)
+			is_basic = true;
+		else if (0x10000110 <= addr && addr < 0x1000012B)
+			is_basic = true;
+		else if (0x10000200 <= addr && addr < 0x10000310)
+			is_basic = true;
+		else if (0x10001000 <= addr && addr < 0x1000210A)
+			is_basic = true;
+	}
 
 	if (is_basic)
 		return PROXYCORE_INSTANCE_HOST | PROXYCORE_INSTANCE_PRIMARY | PROXYCORE_INSTANCE_SECONDARY;
