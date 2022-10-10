@@ -45,5 +45,24 @@ struct vmxpacket_s
 
 	int add_from_raw(const uint8_t *buf, size_t length);
 	bool make_raw();
+
+	uint32_t dt_address_aligned() const
+	{
+		return midi.size() > 10 ? midi[7] << 24 | midi[8] << 16 | midi[9] << 8 | midi[10] : 0;
+	}
+	uint32_t dt_address_packed() const
+	{
+		return midi.size() > 10 ? midi[7] << 21 | midi[8] << 14 | midi[9] << 7 | midi[10] : 0;
+	}
+	uint32_t dt_size_packed() const
+	{
+		if (midi.size() < 10)
+			return 0;
+		if (midi[6] == 0x11)
+			return midi[11] << 21 | midi[12] << 14 | midi[13] << 7 | midi[14];
+		else if (midi[6] == 0x12)
+			return midi.size() - 11 - 2;
+		return 0;
+	}
 };
 #endif // __cplusplus
