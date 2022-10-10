@@ -136,11 +136,14 @@ bool vmxpacket_s::make_raw()
 		if (rem == 1) {
 			raw.push_back(0x05 | (aux << 4));
 			raw.push_back(midi[i]);
+			raw.push_back(0);
+			raw.push_back(0);
 		}
 		else if (rem == 2) {
 			raw.push_back(0x06 | (aux << 4));
 			raw.push_back(midi[i]);
 			raw.push_back(midi[i + 1]);
+			raw.push_back(0);
 		}
 		else if (rem == 3) {
 			raw.push_back(0x07 | (aux << 4));
