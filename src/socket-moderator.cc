@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <errno.h>
 #include <sys/types.h>
 #include <signal.h>
 #include "vmxethproxy.h"
@@ -57,7 +58,7 @@ int socket_moderator_mainloop(socket_moderator_t *s)
 
 	signal(SIGPIPE, SIG_IGN);
 
-	while (cont) {
+	while (cont && !vmx_interrupted) {
 		fd_set read_fds, write_fds, except_fds;
 		FD_ZERO(&read_fds);
 		FD_ZERO(&write_fds);
@@ -85,7 +86,8 @@ int socket_moderator_mainloop(socket_moderator_t *s)
 		struct timeval tv = {timeout_us / 1000000, timeout_us % 1000000};
 		int ret = select(nfds, &read_fds, &write_fds, &except_fds, &tv);
 		if (ret < 0) {
-			perror("Error: select");
+			if (errno != EINTR)
+				perror("Error: select");
 			continue;
 		}
 

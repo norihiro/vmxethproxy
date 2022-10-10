@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <signal.h>
 #include "vmxethproxy.h"
 #include "proxycore.h"
 #include "socket-moderator.h"
@@ -24,6 +25,8 @@
 #include "vmxserver.h"
 #include "vmxmonitor.h"
 #include "vmxprop.h"
+
+volatile int vmx_interrupted;
 
 static bool parse_arguments(vmx_prop_t &pt, int argc, char **argv)
 {
@@ -92,9 +95,17 @@ static bool startup(main_context_s &ctx, vmx_prop_ref_t pt)
 	return true;
 }
 
+static void sigint_handler(int)
+{
+	vmx_interrupted = 1;
+}
+
 int main(int argc, char **argv)
 {
 	vmx_prop_t pt;
+
+	vmx_interrupted = 0;
+	signal(SIGINT, sigint_handler);
 
 	if (!parse_arguments(pt, argc, argv)) {
 		fprintf(stderr, "Error: failed to parse arguments\n");
