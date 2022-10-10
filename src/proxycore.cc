@@ -25,6 +25,18 @@ void proxycore_add_instance(proxycore_t *p, proxycore_instance_cb callback, void
 		flags,
 	};
 	p->instances.push_back(info);
+
+	if (flags & PROXYCORE_INSTANCE_HOST) {
+		vmxpacket_t pkt;
+		pkt.modify_midi() = std::vector<uint8_t>{
+			0xF0,                   // system exclusive message
+			0x7E, 0x7F, 0x06, 0x01, // ID request
+			0xF7                    // EOX
+		};
+		if (pkt.make_raw()) {
+			callback(&pkt, NULL, data);
+		}
+	}
 }
 
 void proxycore_remove_instance(proxycore_t *p, proxycore_instance_cb callback, void *data)
