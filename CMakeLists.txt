@@ -40,6 +40,7 @@ add_executable(vmxethproxy
 	src/vmxserver-client.cc
 	src/vmxmonitor.cc
 	src/vmxpacket.cc
+	src/vmxpacket-str.cc
 	src/vmxpacket-identify.cc
 	src/misc.cc
 	src/vmxprop.cc

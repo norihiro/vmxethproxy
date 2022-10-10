@@ -14,6 +14,7 @@ vmxpacket_t *vmxpacket_create();
 void vmxpacket_destroy(vmxpacket_t *);
 
 int parse_tcp_stream(vmxpacket_t *p, const uint8_t *buf, int length);
+bool vmxpacket_from_string(vmxpacket_t *p, const char *str, uint8_t device_id);
 
 #ifdef __cplusplus
 }
