@@ -27,6 +27,9 @@ void proxycore_add_instance(proxycore_t *p, proxycore_instance_cb callback, void
 
 void proxycore_remove_instance(proxycore_t *p, proxycore_instance_cb callback, void *data)
 {
+	if (!p)
+		return;
+
 	for (auto it = p->instances.begin(); it != p->instances.end(); it++) {
 		if (it->callback == callback && it->data == data) {
 			p->instances.erase(it);
