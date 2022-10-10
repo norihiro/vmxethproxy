@@ -24,6 +24,7 @@
 #include "vmxhost.h"
 #include "vmxserver.h"
 #include "vmxmonitor.h"
+#include "vmxws.h"
 #include "vmxprop.h"
 
 volatile int vmx_interrupted;
@@ -69,6 +70,7 @@ struct main_context_s
 	vmxhost_t *vmxhost = NULL;
 	socket_moderator_t *s = NULL;
 	proxycore_t *p = NULL;
+	vmxws_t *ws = NULL;
 
 	std::vector<vmxserver_t *> servers;
 };
@@ -89,6 +91,15 @@ static bool startup(main_context_s &ctx, vmx_prop_ref_t pt)
 		for (auto &it : *pt_servers) {
 			vmxserver_t *s = vmxserver_create(it.second);
 			ctx.servers.push_back(s);
+		}
+	}
+
+	boost::optional<vmx_prop_t &> pt_ws = pt.get_child_optional("ws");
+	if (pt_ws) {
+		ctx.ws = vmxws_create(*pt_ws);
+		if (!ctx.ws) {
+			fprintf(stderr, "Error: failed to create websockets instance.\n");
+			return false;
 		}
 	}
 
@@ -131,8 +142,13 @@ int main(int argc, char **argv)
 		vmxserver_start(s, ctx.s, ctx.p);
 	}
 
+	if (ctx.ws)
+		vmxws_start(ctx.ws, ctx.s, ctx.p);
+
 	int ret = socket_moderator_mainloop(ctx.s);
 
+	if (ctx.ws)
+		vmxws_destroy(ctx.ws);
 	for (vmxserver_t *s : ctx.servers)
 		vmxserver_destroy(s);
 	socket_moderator_destroy(ctx.s);
