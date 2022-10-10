@@ -12,4 +12,6 @@ struct instance_info_s
 struct proxycore_s
 {
 	std::list<instance_info_s> instances;
+	int host_id = -1;
+	uint8_t host_id_revision[4] = {0, 0, 0, 0};
 };
