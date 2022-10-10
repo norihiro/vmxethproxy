@@ -11,6 +11,7 @@ configure_file(
 )
 
 option(WITH_TEST "Test internal libraries" OFF)
+option(WITH_COVERAGE "Enable coverage" OFF)
 option(WITH_WEBSOCKETS "Provides websockets to send/receive MIDI" ON)
 
 if(${WITH_WEBSOCKETS})
@@ -60,6 +61,11 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 	endif()
 else()
 	target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall -Wextra)
+endif()
+
+if(${WITH_COVERAGE})
+	set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} --coverage")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 endif()
 
 if(${WITH_TEST})
