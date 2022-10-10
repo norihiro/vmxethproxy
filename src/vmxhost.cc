@@ -31,7 +31,7 @@ struct vmxhost_s
 	int port_manual;
 };
 
-static int send_req(const char *host, int port)
+static bool send_req(const char *host, int port)
 {
 	int s = socket(AF_INET, SOCK_DGRAM, 0);
 	struct sockaddr_in addr;
@@ -47,10 +47,12 @@ static int send_req(const char *host, int port)
 	addr.sin_port = htons(9314);
 	if (host)
 		addr.sin_addr.s_addr = inet_addr(host);
-	sendto(s, peer0_0, sizeof(peer0_0), 0, (sockaddr *)&addr, sizeof(addr));
+	ssize_t ret = sendto(s, peer0_0, sizeof(peer0_0), 0, (sockaddr *)&addr, sizeof(addr));
+	if (ret != sizeof(peer0_0))
+		perror("sendto");
 
 	close(s);
-	return 0;
+	return ret == sizeof(peer0_0);
 }
 
 static int create_tcp_listen(const char *bcast)
@@ -71,7 +73,11 @@ static int create_tcp_listen(const char *bcast)
 	getsockname(s1, (sockaddr *)&me, &len);
 	int port_listening = ntohs(me.sin_port);
 	// TODO: If there is no response, send request several times.
-	send_req(bcast, port_listening);
+	if (!send_req(bcast, port_listening)) {
+		close(s1);
+		return -1;
+	}
+
 	return s1;
 }
 
