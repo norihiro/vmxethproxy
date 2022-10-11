@@ -36,7 +36,6 @@ struct vmxws_s
 	socket_moderator_t *ss = NULL;
 
 	// variables for the lws thread
-	struct lws_context *lws_ctx;
 	struct lws_protocols protocols[3];
 	struct lws_http_mount mounts;
 	std::list<struct vmxws_client_s *> clients;
@@ -44,6 +43,7 @@ struct vmxws_s
 	// variables for inter-thread communication
 	std::mutex mutex;
 	int pipe_lws2vmx[2];
+	struct lws_context *lws_ctx;
 	std::queue<vmxpacket_t *> pkts_lws2vmx;
 	std::queue<vmxpacket_t *> pkts_vmx2lws;
 
@@ -132,7 +132,11 @@ void vmxws_destroy(vmxws_t *c)
 		socket_moderator_remove(c->ss, c);
 
 	if (c->thread_started) {
-		lws_cancel_service(c->lws_ctx);
+		std::unique_lock<std::mutex> lock(c->mutex);
+		if (c->lws_ctx)
+			lws_cancel_service(c->lws_ctx);
+		lock.unlock();
+
 		void *retval;
 		pthread_join(c->thread_lws, &retval);
 	}
@@ -195,14 +199,16 @@ static void *vmxws_routine(void *data)
 	int n;
 	ASSERT_THREAD(lws);
 
-	c->lws_ctx = vmxws_routine_init(c);
-	if (!c->lws_ctx)
+	struct lws_context *lws_ctx = vmxws_routine_init(c);
+	if (!lws_ctx)
 		return NULL;
+
+	c->lws_ctx = lws_ctx;
 
 	notify_pipe(c->pipe_lws2vmx);
 
 	while (n >= 0 && !vmx_interrupted && !c->request_exit) {
-		n = lws_service(c->lws_ctx, 0);
+		n = lws_service(lws_ctx, 0);
 
 		std::unique_lock<std::mutex> lock(c->mutex);
 		while (c->pkts_vmx2lws.size()) {
@@ -219,8 +225,12 @@ static void *vmxws_routine(void *data)
 		}
 	}
 
-	lws_context_destroy(c->lws_ctx);
-	c->lws_ctx = NULL;
+	{
+		std::lock_guard<std::mutex> lock(c->mutex);
+		c->lws_ctx = NULL;
+	}
+
+	lws_context_destroy(lws_ctx);
 
 	return NULL;
 }
@@ -266,7 +276,8 @@ static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 
 		std::lock_guard<std::mutex> lock(c->mutex);
 		c->pkts_vmx2lws.push(pkt);
-		lws_cancel_service(c->lws_ctx);
+		if (c->lws_ctx)
+			lws_cancel_service(c->lws_ctx);
 	}
 }
 
