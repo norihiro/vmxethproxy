@@ -15,9 +15,19 @@
 #include "src/vmxpacket-identify.h"
 #include "proxycore.h"
 
+// #define DEBUG_THREAD
+#ifdef DEBUG_THREAD
+#define ASSERT_THREAD(x) do { if (c->thread_##x != pthread_self()) fprintf(stderr, "Error: %s: expected thread " #x"\n", __func__); } while (0)
+#else
+#define ASSERT_THREAD(x)
+#endif
+
 struct vmxws_s
 {
-	pthread_t thread;
+	pthread_t thread_lws;
+#ifdef DEBUG_THREAD
+	pthread_t thread_main;
+#endif
 	bool thread_started = 0;
 	volatile bool request_exit = 0;
 
@@ -59,6 +69,9 @@ vmxws_t *vmxws_create(vmx_prop_ref_t prop)
 {
 	auto *c = new vmxws_t;
 	c->mounts.origin = NULL;
+#ifdef DEBUG_THREAD
+	c->thread_main = pthread_self();
+#endif
 
 	vmxws_set_prop(c, prop);
 
@@ -97,6 +110,7 @@ static void notify_pipe(int *p)
 
 void vmxws_start(vmxws_t *c, socket_moderator_t *ss, proxycore_t *p)
 {
+	ASSERT_THREAD(main);
 	c->proxy = p;
 	c->ss = ss;
 	socket_moderator_add(ss, &socket_info, c);
@@ -104,13 +118,14 @@ void vmxws_start(vmxws_t *c, socket_moderator_t *ss, proxycore_t *p)
 
 	pipe2(c->pipe_lws2vmx, O_CLOEXEC);
 
-	pthread_create(&c->thread, NULL, vmxws_routine, c);
+	pthread_create(&c->thread_lws, NULL, vmxws_routine, c);
 	wait_pipe(c->pipe_lws2vmx);
 	c->thread_started = true;
 }
 
 void vmxws_destroy(vmxws_t *c)
 {
+	ASSERT_THREAD(main);
 	c->request_exit = true;
 
 	if (c->ss)
@@ -119,7 +134,7 @@ void vmxws_destroy(vmxws_t *c)
 	if (c->thread_started) {
 		lws_cancel_service(c->lws_ctx);
 		void *retval;
-		pthread_join(c->thread, &retval);
+		pthread_join(c->thread_lws, &retval);
 	}
 
 	if (c->mounts.origin)
@@ -143,6 +158,7 @@ void vmxws_destroy(vmxws_t *c)
 
 static struct lws_context *vmxws_routine_init(vmxws_t *c)
 {
+	ASSERT_THREAD(lws);
 	fprintf(stderr, "%s: c=%p\n", __func__, c);
 	int idx = 0;
 
@@ -177,6 +193,7 @@ static void *vmxws_routine(void *data)
 {
 	auto *c = (vmxws_t *)data;
 	int n;
+	ASSERT_THREAD(lws);
 
 	c->lws_ctx = vmxws_routine_init(c);
 	if (!c->lws_ctx)
@@ -211,6 +228,7 @@ static void *vmxws_routine(void *data)
 int vmxws_set_fds(fd_set *read_fds, fd_set *, fd_set *, void *data)
 {
 	auto c = (vmxws_t *)data;
+	ASSERT_THREAD(main);
 	FD_SET(c->pipe_lws2vmx[0], read_fds);
 	return c->pipe_lws2vmx[0] + 1;
 }
@@ -218,6 +236,7 @@ int vmxws_set_fds(fd_set *read_fds, fd_set *, fd_set *, void *data)
 int vmxws_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 {
 	auto c = (vmxws_t *)data;
+	ASSERT_THREAD(main);
 
 	if (FD_ISSET(c->pipe_lws2vmx[0], read_fds)) {
 		wait_pipe(c->pipe_lws2vmx);
@@ -239,6 +258,7 @@ int vmxws_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 {
 	auto c = (vmxws_t *)data;
+	ASSERT_THREAD(main);
 
 	if (vmxpacket_is_midi_dt1(packet)) {
 		vmxpacket_t *pkt = vmxpacket_create();
@@ -270,6 +290,7 @@ inline static std::string packet_to_string(const vmxpacket_t *pkt)
 
 static void ws_client_broadcast(vmxws_t *c, struct vmxws_client_s *cc_sender, const vmxpacket_t *pkt)
 {
+	ASSERT_THREAD(lws);
 	std::string str = packet_to_string(pkt);
 
 	for (struct vmxws_client_s *cc : c->clients) {
@@ -282,7 +303,9 @@ static void ws_client_broadcast(vmxws_t *c, struct vmxws_client_s *cc_sender, co
 
 static void ws_client_received(vmxws_t *c, struct vmxws_client_s *cc, const char *data)
 {
+	ASSERT_THREAD(lws);
 	vmxpacket_t *packet = vmxpacket_create();
+	// TODO: It's not good to access proxy from the lws thread.
 	if (!vmxpacket_from_string(packet, data, proxycore_get_host_id(c->proxy))) {
 		fprintf(stderr, "Error: cannot create packet.\n");
 		return;
@@ -300,6 +323,7 @@ static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *
 {
 	auto *sd = (struct session_data_s *)user;
 	auto c = (vmxws_t *)lws_get_protocol(wsi)->user;
+	ASSERT_THREAD(lws);
 
 	switch (reason) {
 	case LWS_CALLBACK_PROTOCOL_INIT:
