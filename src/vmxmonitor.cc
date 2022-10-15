@@ -75,7 +75,8 @@ vmxmonitor_t *vmxmonitor_create(proxycore_t *p)
 
 void vmxmonitor_destroy(vmxmonitor_t *c)
 {
-	proxycore_remove_instance(c->proxy, proxy_callback, c);
+	if (c->proxy)
+		proxycore_remove_instance(c->proxy, proxy_callback, c);
 
 	delete c;
 }
