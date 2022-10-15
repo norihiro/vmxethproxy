@@ -99,7 +99,7 @@ static uint32_t determine_receiver_types(proxycore_t *p, const vmxpacket_t *pack
 	(void)p;
 	bool is_basic = false;
 
-	if (vmxpacket_is_midi_dt1(packet)) {
+	if (vmxpacket_is_midi_dt1(packet) || vmxpacket_is_midi_rq1(packet)) {
 		int addr = packet->dt_address_aligned();
 		if (addr < 0x10000000)
 			is_basic = true;
