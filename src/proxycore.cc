@@ -63,6 +63,46 @@ static bool reply_to_sender(proxycore_t *p, const vmxpacket_t *packet, const voi
 	return false;
 }
 
+static bool is_basic_address(const vmxpacket_t *packet)
+{
+	if (vmxpacket_is_midi_dt1(packet) || vmxpacket_is_midi_rq1(packet)) {
+		int addr = packet->dt_address_aligned();
+		if (addr < 0x10000000)
+			return true;
+		else if (0x10000000 <= addr && addr < 0x10000004)
+			return true;
+		else if (0x10000010 <= addr && addr < 0x10000016)
+			return true;
+		else if (0x10000020 <= addr && addr < 0x10000021)
+			return true;
+		else if (0x10000022 <= addr && addr < 0x10000026)
+			return true;
+		else if (0x10000027 <= addr && addr < 0x10000029)
+			return true;
+		else if (0x10000100 <= addr && addr < 0x10000104)
+			return true;
+		else if (0x10000110 <= addr && addr < 0x1000012B)
+			return true;
+		else if (0x10000200 <= addr && addr < 0x10000310)
+			return true;
+		else if (0x10001000 <= addr && addr < 0x1000210A)
+			return true;
+	}
+
+	return false;
+}
+
+static void add_midi_sum_eox(std::vector<uint8_t> &midi, size_t ix)
+{
+	uint8_t sum = 0;
+
+	for (size_t i = ix; i < midi.size(); i++)
+		sum += midi[i];
+	sum &= 0x7F;
+	midi.push_back(sum ? 128 - sum : 0);
+	midi.push_back(0xF7);
+}
+
 static bool return_by_proxy(proxycore_t *p, const vmxpacket_t *packet, const void *sender, uint32_t sender_flags)
 {
 	if (sender_flags & PROXYCORE_INSTANCE_HOST)
@@ -88,6 +128,40 @@ static bool return_by_proxy(proxycore_t *p, const vmxpacket_t *packet, const voi
 				return true;
 		}
 
+		if (vmxpacket_is_midi_rq1(packet) && is_basic_address(packet)) {
+			int addr = packet->dt_address_packed();
+			int size = packet->dt_size_packed();
+			for (int i = 0; i < size; i++) {
+				if (p->dt1_cache.count(addr + i) == 0)
+					return false;
+			}
+
+			vmxpacket_t pkt_reply;
+			auto &midi = pkt_reply.modify_midi();
+			midi = std::vector<uint8_t>{
+				0xF0,
+				0x41,
+				(uint8_t)(p->host_id & 0x7F),
+				0x00,
+				0x00,
+				0x24,
+				0x12, // DT1
+				(uint8_t)((addr >> 21) & 0x7F),
+				(uint8_t)((addr >> 14) & 0x7F), // address MSP
+				(uint8_t)((addr >> 7) & 0x7F),
+				(uint8_t)(addr & 0x7F), // address LSB
+			};
+
+			for (int i = 0; i < size; i++)
+				midi.push_back(p->dt1_cache[addr + i]);
+
+			add_midi_sum_eox(midi, 7);
+			if (pkt_reply.make_raw()) {
+				reply_to_sender(p, &pkt_reply, sender);
+				return true;
+			}
+		}
+
 		// TODO: return reserved address
 	}
 
@@ -97,33 +171,8 @@ static bool return_by_proxy(proxycore_t *p, const vmxpacket_t *packet, const voi
 static uint32_t determine_receiver_types(proxycore_t *p, const vmxpacket_t *packet, uint32_t sender_flags)
 {
 	(void)p;
-	bool is_basic = false;
 
-	if (vmxpacket_is_midi_dt1(packet) || vmxpacket_is_midi_rq1(packet)) {
-		int addr = packet->dt_address_aligned();
-		if (addr < 0x10000000)
-			is_basic = true;
-		else if (0x10000000 <= addr && addr < 0x10000004)
-			is_basic = true;
-		else if (0x10000010 <= addr && addr < 0x10000016)
-			is_basic = true;
-		else if (0x10000020 <= addr && addr < 0x10000021)
-			is_basic = true;
-		else if (0x10000022 <= addr && addr < 0x10000026)
-			is_basic = true;
-		else if (0x10000027 <= addr && addr < 0x10000029)
-			is_basic = true;
-		else if (0x10000100 <= addr && addr < 0x10000104)
-			is_basic = true;
-		else if (0x10000110 <= addr && addr < 0x1000012B)
-			is_basic = true;
-		else if (0x10000200 <= addr && addr < 0x10000310)
-			is_basic = true;
-		else if (0x10001000 <= addr && addr < 0x1000210A)
-			is_basic = true;
-	}
-
-	if (is_basic)
+	if (is_basic_address(packet))
 		return PROXYCORE_INSTANCE_HOST | PROXYCORE_INSTANCE_PRIMARY | PROXYCORE_INSTANCE_SECONDARY;
 	if (sender_flags & PROXYCORE_INSTANCE_HOST)
 		return PROXYCORE_INSTANCE_PRIMARY;
@@ -141,6 +190,13 @@ static bool preprocess_packet(proxycore_t *p, vmxpacket_t *packet, uint32_t send
 		p->host_id_revision[1] = packet->midi[11];
 		p->host_id_revision[2] = packet->midi[12];
 		p->host_id_revision[3] = packet->midi[13];
+	}
+
+	if (vmxpacket_is_midi_dt1(packet)) {
+		int addr = packet->dt_address_packed();
+		int size = packet->dt_size_packed();
+		for (int i = 0; i < size; i++)
+			p->dt1_cache[addr + i] = packet->midi[11 + i];
 	}
 
 	return true;
