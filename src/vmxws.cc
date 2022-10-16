@@ -251,14 +251,20 @@ int vmxws_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 	if (FD_ISSET(c->pipe_lws2vmx[0], read_fds)) {
 		wait_pipe(c->pipe_lws2vmx);
 
-		std::lock_guard<std::mutex> lock(c->mutex);
+		std::unique_lock<std::mutex> lock(c->mutex);
 		while (c->pkts_lws2vmx.size()) {
 			vmxpacket_t *packet = c->pkts_lws2vmx.front();
 			c->pkts_lws2vmx.pop();
 
+			/* Need to unlock because proxycore_process_packet will
+			 * callback ourselves and it causes deadlock. */
+			lock.unlock();
+
 			proxycore_process_packet(c->proxy, packet, c, PROXYCORE_INSTANCE_SECONDARY);
 
 			vmxpacket_destroy(packet);
+
+			lock.lock();
 		}
 	}
 
