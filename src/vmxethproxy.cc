@@ -90,6 +90,10 @@ static bool startup(main_context_s &ctx, vmx_prop_ref_t pt)
 	if (pt_servers) {
 		for (auto &it : *pt_servers) {
 			vmxserver_t *s = vmxserver_create(it.second);
+			if (!s) {
+				fprintf(stderr, "Error: failed to create a server.\n");
+				return false;
+			}
 			ctx.servers.push_back(s);
 		}
 	}
