@@ -364,7 +364,6 @@ static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *
 		}
 		break;
 	case LWS_CALLBACK_SERVER_WRITEABLE:
-		fprintf(stderr, "%s: LWS_CALLBACK_SERVER_WRITEABLE cc=%p\n", __func__, sd->ctx);
 		if (sd->ctx) {
 			while (sd->ctx->write_queue.size()) {
 				std::string &str = sd->ctx->write_queue.front();
@@ -382,7 +381,6 @@ static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *
 		}
 		break;
 	case LWS_CALLBACK_RECEIVE:
-		fprintf(stderr, "%s: LWS_CALLBACK_RECEIVE\n", __func__);
 		if (sd->ctx) {
 			std::string data((char *)in, (char *)in + len);
 			ws_client_received(c, sd->ctx, data.c_str());
