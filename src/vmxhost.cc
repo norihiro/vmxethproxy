@@ -19,6 +19,7 @@ struct vmxhost_s
 	int sock = -1;
 	proxycore_t *proxy;
 	uint32_t heartbeat_next_us;
+	uint32_t last_received_us;
 
 	std::vector<uint8_t> buf_recv;
 
@@ -29,6 +30,8 @@ struct vmxhost_s
 	std::string bcast_discovery;
 	std::string host_manual;
 	int port_manual;
+	uint32_t heartbeat_period_us;
+	uint32_t no_response_timeout_us;
 };
 
 static bool send_req(const char *host, int port)
@@ -151,6 +154,8 @@ void vmxhost_set_prop(vmxhost_t *h, vmx_prop_ref_t prop)
 	h->bcast_discovery = prop.get<std::string>("discovery-broadcast", "255.255.255.255");
 	h->host_manual = prop.get<std::string>("host", "");
 	h->port_manual = prop.get<int>("port", 0);
+	h->heartbeat_period_us = (uint32_t)(prop.get<double>("heartbeat_period", 1.0) * 1e6 + 0.5);
+	h->no_response_timeout_us = (uint32_t)(prop.get<double>("no_response_timeout", 10.0) * 1e6 + 0.5);
 }
 
 vmxhost_t *vmxhost_create(vmx_prop_ref_t pt)
@@ -166,7 +171,7 @@ vmxhost_t *vmxhost_create(vmx_prop_ref_t pt)
 		return NULL;
 	}
 
-	h->heartbeat_next_us = os_gettime_us();
+	h->heartbeat_next_us = h->last_received_us = os_gettime_us();
 
 	if (h->host_manual.size() && h->port_manual > 0) {
 		if (!h->connect_manual()) {
@@ -196,7 +201,7 @@ static int vmxhost_set_fds(fd_set *read_fds, fd_set *, fd_set *, void *data)
 
 static void send_heartbeat(struct vmxhost_s *h)
 {
-	h->heartbeat_next_us += 1000000;
+	h->heartbeat_next_us += h->heartbeat_period_us;
 	if (h->sock < 0)
 		return;
 
@@ -217,7 +222,7 @@ static uint32_t vmxhost_timeout_us(void *data)
 	int32_t until_hb_us = h->heartbeat_next_us - os_gettime_us();
 	if (until_hb_us <= 0) {
 		send_heartbeat(h);
-		until_hb_us += 1000000;
+		until_hb_us += h->heartbeat_period_us;
 		if (until_hb_us < 0)
 			until_hb_us = 0;
 	}
@@ -227,6 +232,7 @@ static uint32_t vmxhost_timeout_us(void *data)
 
 static int process_received(struct vmxhost_s *h)
 {
+	h->last_received_us = os_gettime_us();
 	vmxpacket_t pkt;
 	int consumed = parse_tcp_stream(&pkt, &h->buf_recv[0], h->buf_recv.size());
 	if (consumed == 0)
@@ -257,8 +263,20 @@ static int process_received(struct vmxhost_s *h)
 static int vmxhost_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 {
 	auto h = (struct vmxhost_s *)data;
-	if (h->sock < 0)
-		return 0;
+
+	if (h->last_received_us) {
+		int32_t last_received_us = os_gettime_us() - h->last_received_us;
+		if (last_received_us > (int32_t)h->no_response_timeout_us) {
+			fprintf(stderr, "Error: vmxhost: no data from the host for %d ms.\n",
+				last_received_us / 1000);
+			return 1;
+		}
+	}
+
+	if (h->sock < 0) {
+		fprintf(stderr, "Error: vmxhost: socket error\n");
+		return 1;
+	}
 
 	if (!FD_ISSET(h->sock, read_fds))
 		return 0;
