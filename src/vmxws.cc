@@ -14,10 +14,15 @@
 #include "vmxpacket.h"
 #include "src/vmxpacket-identify.h"
 #include "proxycore.h"
+#include "rangeset.h"
 
 // #define DEBUG_THREAD
 #ifdef DEBUG_THREAD
-#define ASSERT_THREAD(x) do { if (c->thread_##x != pthread_self()) fprintf(stderr, "Error: %s: expected thread " #x"\n", __func__); } while (0)
+#define ASSERT_THREAD(x)                                                                  \
+	do {                                                                              \
+		if (c->thread_##x != pthread_self())                                      \
+			fprintf(stderr, "Error: %s: expected thread " #x "\n", __func__); \
+	} while (0)
 #else
 #define ASSERT_THREAD(x)
 #endif
@@ -56,6 +61,9 @@ struct vmxws_client_s
 {
 	std::queue<std::string> write_queue;
 	struct lws *wsi;
+
+	// variables for the lws thread
+	rangeset<uint32_t> addresses;
 };
 
 struct session_data_s
@@ -114,7 +122,7 @@ void vmxws_start(vmxws_t *c, socket_moderator_t *ss, proxycore_t *p)
 	c->proxy = p;
 	c->ss = ss;
 	socket_moderator_add(ss, &socket_info, c);
-	proxycore_add_instance(p, proxy_callback, c, PROXYCORE_INSTANCE_HOST);
+	proxycore_add_instance(p, proxy_callback, c, PROXYCORE_INSTANCE_MONITOR);
 
 	pipe2(c->pipe_lws2vmx, O_CLOEXEC);
 
@@ -313,22 +321,42 @@ static void ws_client_broadcast(vmxws_t *c, struct vmxws_client_s *cc_sender, co
 	for (struct vmxws_client_s *cc : c->clients) {
 		if (cc == cc_sender)
 			continue;
-		cc->write_queue.push(str);
-		lws_callback_on_writable(cc->wsi);
+		// TODO: check not only the begining but also any addresses are in the range.
+		if (cc->addresses.test(pkt->dt_address_packed())) {
+			cc->write_queue.push(str);
+			lws_callback_on_writable(cc->wsi);
+		}
 	}
 }
 
-static void ws_client_received(vmxws_t *c, struct vmxws_client_s *cc, const char *data)
+static void ws_client_received(vmxws_t *c, struct vmxws_client_s *cc, char *data)
 {
 	ASSERT_THREAD(lws);
 	vmxpacket_t *packet = vmxpacket_create();
+	bool rq0 = false;
+
 	// TODO: It's not good to access proxy from the lws thread.
+	if (strncmp(data, "RQ0", 3) == 0) {
+		data[2] = '1';
+		rq0 = true;
+	}
+
 	if (!vmxpacket_from_string(packet, data, proxycore_get_host_id(c->proxy))) {
 		fprintf(stderr, "Error: cannot create packet.\n");
 		return;
 	}
 
-	ws_client_broadcast(c, cc, packet);
+	if (strncmp(data, "RQ1", 3) == 0) {
+		uint32_t begin = packet->dt_address_packed();
+		uint32_t end = begin + packet->dt_size_packed();
+		cc->addresses.add(begin, end);
+	}
+
+	if (rq0)
+		return;
+
+	if (strncmp(data, "DT1", 3) == 0)
+		ws_client_broadcast(c, cc, packet);
 
 	std::lock_guard<std::mutex> lock(c->mutex);
 	c->pkts_lws2vmx.push(packet);
@@ -382,8 +410,9 @@ static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *
 		break;
 	case LWS_CALLBACK_RECEIVE:
 		if (sd->ctx) {
-			std::string data((char *)in, (char *)in + len);
-			ws_client_received(c, sd->ctx, data.c_str());
+			std::vector<char> data((char *)in, (char *)in + len);
+			data.push_back(0);
+			ws_client_received(c, sd->ctx, &data[0]);
 		}
 		break;
 	default:
