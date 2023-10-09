@@ -220,7 +220,7 @@ void proxycore_process_packet(proxycore_t *p, vmxpacket_t *packet, const void *s
 	}
 }
 
-int proxycore_get_host_id(proxycore_t *p)
+int proxycore_get_host_id(const proxycore_t *p)
 {
 	return p->host_id;
 }
