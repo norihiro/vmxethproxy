@@ -17,7 +17,7 @@
 struct vmxhost_s
 {
 	int sock = -1;
-	proxycore_t *proxy;
+	proxycore_t *proxy = NULL;
 	uint32_t heartbeat_next_us;
 	uint32_t last_received_us;
 
@@ -192,8 +192,11 @@ vmxhost_t *vmxhost_create(vmx_prop_ref_t pt)
 static int vmxhost_set_fds(fd_set *read_fds, fd_set *, fd_set *, void *data)
 {
 	auto h = (struct vmxhost_s *)data;
-	if (h->sock < 0)
+	if (h->sock < 0) {
+		fprintf(stderr, "Error: vmxhost: no valid socket. Interrupting...\n");
+		vmx_interrupted = true;
 		return 0;
+	}
 
 	FD_SET(h->sock, read_fds);
 	return h->sock + 1;
