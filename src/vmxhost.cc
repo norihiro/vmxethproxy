@@ -270,8 +270,7 @@ static int vmxhost_process(fd_set *read_fds, fd_set *, fd_set *, void *data)
 	if (h->last_received_us) {
 		int32_t last_received_us = os_gettime_us() - h->last_received_us;
 		if (last_received_us > (int32_t)h->no_response_timeout_us) {
-			fprintf(stderr, "Error: vmxhost: no data from the host for %d ms.\n",
-				last_received_us / 1000);
+			fprintf(stderr, "Error: vmxhost: no data from the host for %d ms.\n", last_received_us / 1000);
 			return 1;
 		}
 	}
