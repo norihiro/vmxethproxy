@@ -125,10 +125,10 @@ static int process_received(vmxserver_client_t *c)
 	if (consumed == 0)
 		return 0;
 	if (consumed < 0) {
-		fprintf(stderr, "Error: error to process data %02x %02x %02x %02x, size=%d. Closing...\n",
-			(int)c->buf_recv.size(), c->buf_recv.size() > 0 ? c->buf_recv[0] : 0,
-			c->buf_recv.size() > 1 ? c->buf_recv[1] : 0, c->buf_recv.size() > 2 ? c->buf_recv[2] : 0,
-			c->buf_recv.size() > 3 ? c->buf_recv[3] : 0);
+		fprintf(stderr, "Error: client processing data %02x %02x %02x %02x, size=%d. Closing...\n",
+			c->buf_recv.size() > 0 ? c->buf_recv[0] : 0, c->buf_recv.size() > 1 ? c->buf_recv[1] : 0,
+			c->buf_recv.size() > 2 ? c->buf_recv[2] : 0, c->buf_recv.size() > 3 ? c->buf_recv[3] : 0,
+			(int)c->buf_recv.size());
 		close(c->sock);
 		c->sock = -1;
 		return 0;
