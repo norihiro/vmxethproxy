@@ -36,6 +36,7 @@ add_executable(vmxethproxy
 	src/proxycore.cc
 	src/socket-moderator.cc
 	src/vmxhost.cc
+	src/vmxhost-dummy.cc
 	src/vmxserver.cc
 	src/vmxserver-client.cc
 	src/vmxmonitor.cc

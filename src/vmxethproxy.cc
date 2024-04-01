@@ -22,6 +22,7 @@
 #include "proxycore.h"
 #include "socket-moderator.h"
 #include "vmxhost.h"
+#include "vmxhost-dummy.h"
 #include "vmxserver.h"
 #include "vmxmonitor.h"
 #include "vmxws.h"
@@ -68,6 +69,7 @@ static bool parse_arguments(vmx_prop_t &pt, int argc, char **argv)
 struct main_context_s
 {
 	vmxhost_t *vmxhost = NULL;
+	vmxhost_dummy_t *vmxhost_dummy = NULL;
 	socket_moderator_t *s = NULL;
 	proxycore_t *p = NULL;
 	vmxws_t *ws = NULL;
@@ -78,7 +80,14 @@ struct main_context_s
 static bool startup(main_context_s &ctx, vmx_prop_ref_t pt)
 {
 	boost::optional<vmx_prop_t &> pt_vmxhost = pt.get_child_optional("host");
-	if (pt_vmxhost) {
+	if (pt_vmxhost && pt_vmxhost->get<bool>("dummy", false)) {
+		ctx.vmxhost_dummy = vmxhost_dummy_create(*pt_vmxhost);
+		if (!ctx.vmxhost_dummy) {
+			fprintf(stderr, "Error: failed to create dummy host.\n");
+			return false;
+		}
+	}
+	else if (pt_vmxhost) {
 		ctx.vmxhost = vmxhost_create(*pt_vmxhost);
 		if (!ctx.vmxhost) {
 			fprintf(stderr, "Error: failed to create V-Mixer connection.\n");
@@ -142,6 +151,9 @@ int main(int argc, char **argv)
 	if (ctx.vmxhost)
 		vmxhost_start(ctx.vmxhost, ctx.s, ctx.p);
 
+	if (ctx.vmxhost_dummy)
+		vmxhost_dummy_start(ctx.vmxhost_dummy, ctx.s, ctx.p);
+
 	for (vmxserver_t *s : ctx.servers) {
 		vmxserver_start(s, ctx.s, ctx.p);
 	}
@@ -156,6 +168,8 @@ int main(int argc, char **argv)
 	for (vmxserver_t *s : ctx.servers)
 		vmxserver_destroy(s);
 	socket_moderator_destroy(ctx.s);
+	if (ctx.vmxhost_dummy)
+		vmxhost_dummy_destroy(ctx.vmxhost_dummy);
 	if (ctx.vmxhost)
 		vmxhost_destroy(ctx.vmxhost);
 	vmxmonitor_destroy(monitor);
