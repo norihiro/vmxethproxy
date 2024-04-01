@@ -130,6 +130,7 @@ int main(int argc, char **argv)
 
 	vmx_interrupted = 0;
 	signal(SIGINT, sigint_handler);
+	signal(SIGTERM, sigint_handler);
 
 	if (!parse_arguments(pt, argc, argv)) {
 		fprintf(stderr, "Error: failed to parse arguments\n");
