@@ -10,6 +10,9 @@
 extern "C" {
 #endif
 
+struct vmxpacket_s;
+typedef struct vmxpacket_s vmxpacket_t;
+
 vmxpacket_t *vmxpacket_create();
 void vmxpacket_destroy(vmxpacket_t *);
 
