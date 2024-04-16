@@ -27,6 +27,7 @@ struct vmxserver_s
 	std::string name;
 	std::list<vmxserver_client_t *> clients;
 	int port_listen;
+	vmx_prop_t prop;
 };
 
 void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
@@ -34,6 +35,7 @@ void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
 	s->primary = prop.get<bool>("primary", false);
 	s->name = prop.get<std::string>("name", "M-200i-1");
 	s->port_listen = prop.get<int>("port", 0);
+	s->prop = prop;
 }
 
 vmxserver_t *vmxserver_create(vmx_prop_ref_t prop)
@@ -143,7 +145,7 @@ static void process_connection(struct vmxserver_s *s)
 		proxy_flags |= PROXYCORE_INSTANCE_PRIMARY;
 	else
 		proxy_flags |= PROXYCORE_INSTANCE_SECONDARY;
-	auto c = vmxserver_client_create(sock, proxy_flags, s->ss, s->proxy);
+	auto c = vmxserver_client_create(sock, proxy_flags, s->ss, s->proxy, s->prop);
 	if (c)
 		s->clients.push_back(c);
 }

@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include <cstdint>
+#include <sys/ioctl.h>
 #include "vmxethproxy.h"
 #include "vmxserver-client.h"
 #include "util/platform.h"
@@ -19,6 +20,9 @@ struct vmxserver_client_s
 	uint32_t heartbeat_next_us;
 
 	std::vector<uint8_t> buf_recv;
+
+	// property
+	int send_buf_thresh;
 };
 
 static void proxy_callback(const vmxpacket_t *packet, const void *sender, void *data);
@@ -32,7 +36,8 @@ static const struct socket_info_s socket_info = {
 	client_process,
 };
 
-vmxserver_client_t *vmxserver_client_create(int sock, uint32_t proxy_flags, socket_moderator_t *ss, proxycore_t *p)
+vmxserver_client_t *vmxserver_client_create(int sock, uint32_t proxy_flags, socket_moderator_t *ss, proxycore_t *p,
+					    vmx_prop_ref_t prop)
 {
 	auto c = new struct vmxserver_client_s;
 
@@ -41,6 +46,7 @@ vmxserver_client_t *vmxserver_client_create(int sock, uint32_t proxy_flags, sock
 	c->ss = ss;
 	c->proxy = p;
 	c->heartbeat_next_us = os_gettime_us();
+	c->send_buf_thresh = prop.get<int>("send_buf_thresh", 0);
 
 	socket_moderator_add(ss, &socket_info, c);
 	proxycore_add_instance(p, proxy_callback, c, proxy_flags);
@@ -64,9 +70,26 @@ bool vmxserver_client_has_error(vmxserver_client_t *c)
 	return c->sock < 0;
 }
 
+static inline bool check_skipping_packet(vmxserver_client_t *c)
+{
+	if (c->send_buf_thresh <= 0)
+		return false;
+
+	int siocountq = 0;
+	if (ioctl(c->sock, TIOCOUTQ, &siocountq))
+		return false;
+
+	return siocountq >= c->send_buf_thresh;
+}
+
 static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 {
 	auto c = (vmxserver_client_t *)data;
+
+	if (packet->dt_address_aligned() == 0x10100100) {
+		if (check_skipping_packet(c))
+			return;
+	}
 
 	if (!send_stream(c->sock, packet)) {
 		close(c->sock);
