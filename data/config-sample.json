@@ -1,13 +1,25 @@
 {
-	"host": { },
-	"servers": [
+	"instances": [
 		{
-			"primary": true,
-			"port": 33752
+			"id": "host-eth",
+			"settings": { }
 		},
 		{
-			"primary": false,
-			"port": 33753
+			"id": "server",
+			"settings": {
+				"primary": true,
+				"port": 33752
+			}
+		},
+		{
+			"id": "server",
+			"settings": {
+				"primary": false,
+				"port": 33753
+			}
+		},
+		{
+			"id": "monitor"
 		}
 	]
 }

@@ -4,12 +4,14 @@
 #include "vmxethproxy.h"
 #include "vmxpacket.h"
 #include "proxycore.h"
-#include "vmxmonitor.h"
 #include "vmxpacket-identify.h"
+#include "vmxinstance.h"
+
+typedef struct vmxmonitor_s vmxmonitor_t;
 
 struct vmxmonitor_s
 {
-	proxycore_t *proxy;
+	proxycore_t *proxy = nullptr;
 };
 
 static void monitor_midi(const vmxpacket_t *packet, const void *sender)
@@ -63,20 +65,31 @@ static void proxy_callback(const vmxpacket_t *packet, const void *sender, void *
 	}
 }
 
-vmxmonitor_t *vmxmonitor_create(proxycore_t *p)
+static void *vmxmonitor_create(vmx_prop_ref_t)
 {
 	auto *c = new vmxmonitor_s;
-
-	c->proxy = p;
-	proxycore_add_instance(p, proxy_callback, c, PROXYCORE_INSTANCE_MONITOR);
-
 	return c;
 }
 
-void vmxmonitor_destroy(vmxmonitor_t *c)
+static void vmxmonitor_start(void *ctx, socket_moderator_t *, proxycore_t *p)
 {
+	auto c = (vmxmonitor_t *)ctx;
+	c->proxy = p;
+	proxycore_add_instance(p, proxy_callback, c, PROXYCORE_INSTANCE_MONITOR);
+}
+
+static void vmxmonitor_destroy(void *ctx)
+{
+	auto c = (vmxmonitor_t *)ctx;
 	if (c->proxy)
 		proxycore_remove_instance(c->proxy, proxy_callback, c);
 
 	delete c;
 }
+
+extern "C" const vmxinstance_type_t vmxmonitor_type = {
+	.id = "monitor",
+	.create = vmxmonitor_create,
+	.start = vmxmonitor_start,
+	.destroy = vmxmonitor_destroy,
+};

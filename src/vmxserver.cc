@@ -8,11 +8,13 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include "vmxethproxy.h"
-#include "vmxserver.h"
 #include "vmxserver-client.h"
 #include "proxycore.h"
 #include "util/platform.h"
 #include "socket-moderator.h"
+#include "vmxinstance.h"
+
+typedef struct vmxserver_s vmxserver_t;
 
 struct vmxserver_s
 {
@@ -31,7 +33,9 @@ struct vmxserver_s
 	bool listen_udp = true;
 };
 
-void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
+static void vmxserver_destroy(void *ctx);
+
+static void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
 {
 	s->primary = prop.get<bool>("primary", false);
 	s->name = prop.get<std::string>("name", "M-200i-1");
@@ -40,7 +44,7 @@ void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
 	s->prop = prop;
 }
 
-vmxserver_t *vmxserver_create(vmx_prop_ref_t prop)
+static void *vmxserver_create(vmx_prop_ref_t prop)
 {
 	auto s = new struct vmxserver_s;
 
@@ -103,8 +107,10 @@ vmxserver_t *vmxserver_create(vmx_prop_ref_t prop)
 	return s;
 }
 
-void vmxserver_destroy(vmxserver_t *s)
+static void vmxserver_destroy(void *ctx)
 {
+	auto s = (vmxserver_t *)ctx;
+
 	if (s->sock >= 0)
 		close(s->sock);
 
@@ -227,9 +233,17 @@ static const struct socket_info_s socket_info = {
 	vmxserver_process,
 };
 
-void vmxserver_start(vmxserver_t *s, socket_moderator_t *ss, proxycore_t *p)
+static void vmxserver_start(void *ctx, socket_moderator_t *ss, proxycore_t *p)
 {
+	auto s = (vmxserver_t *)ctx;
 	s->proxy = p;
 	s->ss = ss;
 	socket_moderator_add(ss, &socket_info, s);
 }
+
+extern "C" const vmxinstance_type_t vmxserver_type = {
+	.id = "server",
+	.create = vmxserver_create,
+	.start = vmxserver_start,
+	.destroy = vmxserver_destroy,
+};

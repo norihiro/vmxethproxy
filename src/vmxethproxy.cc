@@ -17,18 +17,59 @@
 
 #include <stdio.h>
 #include <vector>
+#include <list>
+#include <string>
 #include <signal.h>
 #include "vmxethproxy.h"
 #include "proxycore.h"
 #include "socket-moderator.h"
-#include "vmxhost.h"
-#include "vmxhost-dummy.h"
-#include "vmxserver.h"
-#include "vmxmonitor.h"
-#include "vmxws.h"
+#include "vmxinstance.h"
 #include "vmxprop.h"
 
 volatile int vmx_interrupted;
+
+extern "C" {
+#define ITEM(t) extern const vmxinstance_type_t t;
+#include "vmxinstance-list.h"
+#undef ITEM
+}
+
+static const vmxinstance_type_t *vmxinstance_types[] = {
+#define ITEM(t) &t,
+#include "vmxinstance-list.h"
+#undef ITEM
+};
+
+struct vmxinstance_s
+{
+	const vmxinstance_type_t *type;
+	void *ctx;
+};
+
+static const vmxinstance_type_t *find_type(const char *id)
+{
+	for (auto it : vmxinstance_types) {
+		if (strcmp(it->id, id) == 0)
+			return it;
+	}
+	return NULL;
+}
+
+static void create_instance(std::list<vmxinstance_s> &instances, const char *id, vmx_prop_ref_t pt)
+{
+	vmxinstance_s inst;
+	inst.type = find_type(id);
+	if (!inst.type) {
+		throw "Unknown ID";
+	}
+
+	inst.ctx = inst.type->create(pt);
+	if (!inst.ctx) {
+		throw "Failed to create instance";
+	}
+
+	instances.push_back(inst);
+}
 
 static bool parse_arguments(vmx_prop_t &pt, int argc, char **argv)
 {
@@ -68,51 +109,33 @@ static bool parse_arguments(vmx_prop_t &pt, int argc, char **argv)
 
 struct main_context_s
 {
-	vmxhost_t *vmxhost = NULL;
-	vmxhost_dummy_t *vmxhost_dummy = NULL;
 	socket_moderator_t *s = NULL;
 	proxycore_t *p = NULL;
-	vmxws_t *ws = NULL;
 
-	std::vector<vmxserver_t *> servers;
+	std::list<vmxinstance_s> instances;
 };
 
 static bool startup(main_context_s &ctx, vmx_prop_ref_t pt)
 {
-	boost::optional<vmx_prop_t &> pt_vmxhost = pt.get_child_optional("host");
-	if (pt_vmxhost && pt_vmxhost->get<bool>("dummy", false)) {
-		ctx.vmxhost_dummy = vmxhost_dummy_create(*pt_vmxhost);
-		if (!ctx.vmxhost_dummy) {
-			fprintf(stderr, "Error: failed to create dummy host.\n");
-			return false;
-		}
-	}
-	else if (pt_vmxhost) {
-		ctx.vmxhost = vmxhost_create(*pt_vmxhost);
-		if (!ctx.vmxhost) {
-			fprintf(stderr, "Error: failed to create V-Mixer connection.\n");
-			return false;
-		}
-	}
-
-	boost::optional<vmx_prop_t &> pt_servers = pt.get_child_optional("servers");
-	if (pt_servers) {
-		for (auto &it : *pt_servers) {
-			vmxserver_t *s = vmxserver_create(it.second);
-			if (!s) {
-				fprintf(stderr, "Error: failed to create a server.\n");
+	boost::optional<vmx_prop_t &> pt_instances = pt.get_child_optional("instances");
+	if (pt_instances) {
+		for (auto &it : *pt_instances) {
+			auto id = it.second.get<std::string>("id", "");
+			if (id == "") {
+				fprintf(stderr, "Error: cannot find instance id.\n");
 				return false;
 			}
-			ctx.servers.push_back(s);
-		}
-	}
 
-	boost::optional<vmx_prop_t &> pt_ws = pt.get_child_optional("ws");
-	if (pt_ws) {
-		ctx.ws = vmxws_create(*pt_ws);
-		if (!ctx.ws) {
-			fprintf(stderr, "Error: failed to create websockets instance.\n");
-			return false;
+			vmx_prop_t empty_settings;
+			auto pt_settings = it.second.get_child_optional("settings");
+			vmx_prop_t &settings = pt_settings ? pt_settings.get() : empty_settings;
+
+			try {
+				create_instance(ctx.instances, id.c_str(), settings);
+			} catch (const char *e) {
+				fprintf(stderr, "Error: id='%s': %s\n", id.c_str(), e);
+				return false;
+			}
 		}
 	}
 
@@ -147,33 +170,18 @@ int main(int argc, char **argv)
 	ctx.s = socket_moderator_create();
 	ctx.p = proxycore_create();
 
-	vmxmonitor_t *monitor = vmxmonitor_create(ctx.p);
-
-	if (ctx.vmxhost)
-		vmxhost_start(ctx.vmxhost, ctx.s, ctx.p);
-
-	if (ctx.vmxhost_dummy)
-		vmxhost_dummy_start(ctx.vmxhost_dummy, ctx.s, ctx.p);
-
-	for (vmxserver_t *s : ctx.servers) {
-		vmxserver_start(s, ctx.s, ctx.p);
+	for (vmxinstance_s inst : ctx.instances) {
+		inst.type->start(inst.ctx, ctx.s, ctx.p);
 	}
-
-	if (ctx.ws)
-		vmxws_start(ctx.ws, ctx.s, ctx.p);
 
 	int ret = socket_moderator_mainloop(ctx.s);
 
-	if (ctx.ws)
-		vmxws_destroy(ctx.ws);
-	for (vmxserver_t *s : ctx.servers)
-		vmxserver_destroy(s);
+	for (auto it = ctx.instances.begin(); it != ctx.instances.end();) {
+		it->type->destroy(it->ctx);
+		ctx.instances.erase(it++);
+	}
+
 	socket_moderator_destroy(ctx.s);
-	if (ctx.vmxhost_dummy)
-		vmxhost_dummy_destroy(ctx.vmxhost_dummy);
-	if (ctx.vmxhost)
-		vmxhost_destroy(ctx.vmxhost);
-	vmxmonitor_destroy(monitor);
 	proxycore_destroy(ctx.p);
 
 	return ret;

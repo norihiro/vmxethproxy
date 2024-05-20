@@ -1,0 +1,5 @@
+ITEM(vmxhost_type)
+ITEM(vmxhost_dummy_type)
+ITEM(vmxserver_type)
+ITEM(vmxws_type)
+ITEM(vmxmonitor_type)

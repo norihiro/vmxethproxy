@@ -8,11 +8,13 @@
 #include <string>
 #include "vmxethproxy.h"
 #include "vmxpacket.h"
-#include "vmxhost.h"
 #include "misc.h"
 #include "proxycore.h"
 #include "util/platform.h"
 #include "socket-moderator.h"
+#include "vmxinstance.h"
+
+typedef struct vmxhost_s vmxhost_t;
 
 struct vmxhost_s
 {
@@ -33,6 +35,8 @@ struct vmxhost_s
 	uint32_t heartbeat_period_us;
 	uint32_t no_response_timeout_us;
 };
+
+static void vmxhost_destroy(vmxhost_t *h);
 
 static bool send_req(const char *host, int port)
 {
@@ -149,7 +153,7 @@ bool vmxhost_s::connect_manual()
 	return true;
 }
 
-void vmxhost_set_prop(vmxhost_t *h, vmx_prop_ref_t prop)
+static void vmxhost_set_prop(vmxhost_t *h, vmx_prop_ref_t prop)
 {
 	h->bcast_discovery = prop.get<std::string>("discovery-broadcast", "255.255.255.255");
 	h->host_manual = prop.get<std::string>("host", "");
@@ -158,7 +162,7 @@ void vmxhost_set_prop(vmxhost_t *h, vmx_prop_ref_t prop)
 	h->no_response_timeout_us = (uint32_t)(prop.get<double>("no_response_timeout", 10.0) * 1e6 + 0.5);
 }
 
-vmxhost_t *vmxhost_create(vmx_prop_ref_t pt)
+static void *vmxhost_create(vmx_prop_ref_t pt)
 {
 	auto h = new struct vmxhost_s;
 
@@ -305,17 +309,30 @@ static const struct socket_info_s socket_info = {
 	vmxhost_process,
 };
 
-void vmxhost_start(vmxhost_t *h, socket_moderator_t *s, proxycore_t *p)
+static void vmxhost_start(void *ctx, socket_moderator_t *s, proxycore_t *p)
 {
+	auto h = (vmxhost_t *)ctx;
 	h->proxy = p;
 	socket_moderator_add(s, &socket_info, h);
 	proxycore_add_instance(p, proxy_callback, h, PROXYCORE_INSTANCE_HOST);
 }
 
-void vmxhost_destroy(vmxhost_t *h)
+static void vmxhost_destroy(vmxhost_t *h)
 {
 	proxycore_remove_instance(h->proxy, proxy_callback, h);
 	if (h->sock >= 0)
 		close(h->sock);
 	delete h;
 }
+
+static void vmxhost_destroy_cb(void *ctx)
+{
+	vmxhost_destroy((vmxhost_t *)ctx);
+}
+
+extern "C" const vmxinstance_type_t vmxhost_type = {
+	.id = "host-eth",
+	.create = vmxhost_create,
+	.start = vmxhost_start,
+	.destroy = vmxhost_destroy_cb,
+};

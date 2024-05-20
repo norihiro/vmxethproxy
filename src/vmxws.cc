@@ -10,11 +10,12 @@
 #include <queue>
 #include <libwebsockets.h>
 #include "vmxethproxy.h"
-#include "vmxws.h"
 #include "vmxpacket.h"
+#include "socket-moderator.h"
 #include "src/vmxpacket-identify.h"
 #include "proxycore.h"
 #include "rangeset.h"
+#include "vmxinstance.h"
 
 // #define DEBUG_THREAD
 #ifdef DEBUG_THREAD
@@ -26,6 +27,8 @@
 #else
 #define ASSERT_THREAD(x)
 #endif
+
+typedef struct vmxws_s vmxws_t;
 
 struct vmxws_s
 {
@@ -88,8 +91,9 @@ static int pipe2(int pipefd[2], int flags)
 #endif
 
 static void ws_client_broadcast(vmxws_t *c, struct vmxws_client_s *cc_sender, const vmxpacket_t *pkt);
+static void vmxws_set_prop(vmxws_t *c, vmx_prop_ref_t prop);
 
-vmxws_t *vmxws_create(vmx_prop_ref_t prop)
+static void *vmxws_create(vmx_prop_ref_t prop)
 {
 	auto *c = new vmxws_t;
 	c->mounts.origin = NULL;
@@ -102,7 +106,7 @@ vmxws_t *vmxws_create(vmx_prop_ref_t prop)
 	return c;
 }
 
-void vmxws_set_prop(vmxws_t *c, vmx_prop_ref_t prop)
+static void vmxws_set_prop(vmxws_t *c, vmx_prop_ref_t prop)
 {
 	c->port = prop.get<int>("port", 7681);
 	c->http_origin = prop.get<std::string>("http_origin", "");
@@ -132,8 +136,9 @@ static void notify_pipe(int *p)
 	write(p[1], &c, 1);
 }
 
-void vmxws_start(vmxws_t *c, socket_moderator_t *ss, proxycore_t *p)
+static void vmxws_start(void *ctx, socket_moderator_t *ss, proxycore_t *p)
 {
+	auto c = (vmxws_t *)ctx;
 	ASSERT_THREAD(main);
 	c->proxy = p;
 	c->ss = ss;
@@ -147,8 +152,9 @@ void vmxws_start(vmxws_t *c, socket_moderator_t *ss, proxycore_t *p)
 	c->thread_started = true;
 }
 
-void vmxws_destroy(vmxws_t *c)
+static void vmxws_destroy(void *ctx)
 {
+	auto c = (vmxws_t *)ctx;
 	ASSERT_THREAD(main);
 	c->request_exit = true;
 
@@ -437,3 +443,10 @@ static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *
 
 	return 0;
 }
+
+extern "C" const vmxinstance_type_t vmxws_type = {
+	.id = "ws",
+	.create = vmxws_create,
+	.start = vmxws_start,
+	.destroy = vmxws_destroy,
+};

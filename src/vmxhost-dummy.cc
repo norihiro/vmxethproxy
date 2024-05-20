@@ -8,12 +8,14 @@
 #include <map>
 #include "vmxethproxy.h"
 #include "vmxpacket.h"
-#include "vmxhost-dummy.h"
 #include "vmxpacket-identify.h"
 #include "misc.h"
 #include "proxycore.h"
 #include "util/platform.h"
 #include "socket-moderator.h"
+#include "vmxinstance.h"
+
+typedef struct vmxhost_dummy_s vmxhost_dummy_t;
 
 struct vmxhost_dummy_s
 {
@@ -23,13 +25,13 @@ struct vmxhost_dummy_s
 	std::map<uint32_t, uint8_t> mem;
 };
 
-void vmxhost_dummy_set_prop(vmxhost_dummy_t *h, vmx_prop_ref_t prop)
+static void vmxhost_dummy_set_prop(vmxhost_dummy_t *h, vmx_prop_ref_t prop)
 {
 	(void)h;
 	(void)prop;
 }
 
-vmxhost_dummy_t *vmxhost_dummy_create(vmx_prop_ref_t pt)
+static void *vmxhost_dummy_create(vmx_prop_ref_t pt)
 {
 	auto h = new struct vmxhost_dummy_s;
 
@@ -117,15 +119,24 @@ static const struct socket_info_s socket_info = {
 	vmxhost_dummy_process,
 };
 
-void vmxhost_dummy_start(vmxhost_dummy_t *h, socket_moderator_t *s, proxycore_t *p)
+static void vmxhost_dummy_start(void *ctx, socket_moderator_t *s, proxycore_t *p)
 {
+	auto h = (vmxhost_dummy_t *)ctx;
 	h->proxy = p;
 	socket_moderator_add(s, &socket_info, h);
 	proxycore_add_instance(p, proxy_callback, h, PROXYCORE_INSTANCE_HOST);
 }
 
-void vmxhost_dummy_destroy(vmxhost_dummy_t *h)
+static void vmxhost_dummy_destroy(void *ctx)
 {
+	auto h = (vmxhost_dummy_t *)ctx;
 	proxycore_remove_instance(h->proxy, proxy_callback, h);
 	delete h;
 }
+
+extern "C" const vmxinstance_type_t vmxhost_dummy_type = {
+	.id = "host-dummy",
+	.create = vmxhost_dummy_create,
+	.start = vmxhost_dummy_start,
+	.destroy = vmxhost_dummy_destroy,
+};
