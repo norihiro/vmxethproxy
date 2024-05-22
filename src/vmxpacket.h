@@ -60,11 +60,9 @@ struct vmxpacket_s
 	}
 	uint32_t dt_size_packed() const
 	{
-		if (midi.size() < 10)
-			return 0;
-		if (midi[6] == 0x11)
+		if (midi.size() > 14 && midi[6] == 0x11) // RQ1
 			return midi[11] << 21 | midi[12] << 14 | midi[13] << 7 | midi[14];
-		else if (midi[6] == 0x12)
+		if (midi.size() >= 13 && midi[6] == 0x12) // DT1
 			return midi.size() - 11 - 2;
 		return 0;
 	}
