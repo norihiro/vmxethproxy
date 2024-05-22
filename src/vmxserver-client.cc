@@ -161,8 +161,14 @@ static int process_received(vmxserver_client_t *c)
 
 	if (pkt.raw.size() == 0 && pkt.midi.size() == 0)
 		return 0;
-	// TODO: set flags instead of hardcode PROXYCORE_INSTANCE_PRIMARY.
-	proxycore_process_packet(c->proxy, &pkt, c, PROXYCORE_INSTANCE_PRIMARY);
+
+	uint32_t sender_flags;
+	if (c->proxy_flags & PROXYCORE_INSTANCE_PRIMARY)
+		sender_flags = PROXYCORE_INSTANCE_PRIMARY;
+	else
+		sender_flags = PROXYCORE_INSTANCE_SECONDARY;
+
+	proxycore_process_packet(c->proxy, &pkt, c, sender_flags);
 
 	if (consumed > 0 && c->buf_recv.size() > 0)
 		return process_received(c);
