@@ -10,3 +10,5 @@ set_tests_properties(invalid_json PROPERTIES PASS_REGULAR_EXPRESSION "Error: loa
 add_executable(vmxpacket_test vmxpacket_test.cc ../src/vmxpacket.cc)
 target_include_directories(vmxpacket_test PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME run-vmxpacket_test COMMAND vmxpacket_test)
+
+add_subdirectory(cmocka)
