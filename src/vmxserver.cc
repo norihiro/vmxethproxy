@@ -28,6 +28,7 @@ struct vmxserver_s
 	std::list<vmxserver_client_t *> clients;
 	int port_listen;
 	vmx_prop_t prop;
+	bool listen_udp = true;
 };
 
 void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
@@ -35,6 +36,7 @@ void vmxserver_set_prop(vmxserver_t *s, vmx_prop_ref_t prop)
 	s->primary = prop.get<bool>("primary", false);
 	s->name = prop.get<std::string>("name", "M-200i-1");
 	s->port_listen = prop.get<int>("port", 0);
+	s->listen_udp = prop.get<bool>("listen-udp", true);
 	s->prop = prop;
 }
 
@@ -78,20 +80,25 @@ vmxserver_t *vmxserver_create(vmx_prop_ref_t prop)
 		s->port_listening = ntohs(me.sin_port);
 	}
 
-	s->sock_udp = socket(AF_INET, SOCK_DGRAM, 0);
+	if (s->listen_udp) {
+		s->sock_udp = socket(AF_INET, SOCK_DGRAM, 0);
 
-	struct sockaddr_in addr_udp;
-	memset(&addr_udp, 0, sizeof(addr_udp));
-	addr_udp.sin_port = htons(9314);
-	int ret = bind(s->sock_udp, (const sockaddr *)&addr_udp, sizeof(addr_udp));
-	if (ret) {
-		perror("bind 9314/udp");
-		vmxserver_destroy(s);
-		return NULL;
+		struct sockaddr_in addr_udp;
+		memset(&addr_udp, 0, sizeof(addr_udp));
+		addr_udp.sin_port = htons(9314);
+		int ret = bind(s->sock_udp, (const sockaddr *)&addr_udp, sizeof(addr_udp));
+		if (ret) {
+			perror("bind 9314/udp");
+			vmxserver_destroy(s);
+			return NULL;
+		}
+
+		opt = 1;
+		setsockopt(s->sock_udp, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
 	}
-
-	opt = 1;
-	setsockopt(s->sock_udp, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
+	else {
+		s->sock_udp = -1;
+	}
 
 	return s;
 }
