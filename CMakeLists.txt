@@ -13,6 +13,7 @@ configure_file(
 option(WITH_TEST "Test internal libraries" OFF)
 option(WITH_COVERAGE "Enable coverage" OFF)
 option(WITH_WEBSOCKETS "Provides websockets to send/receive MIDI" ON)
+option(WITH_PORTMIDI "Enable host connection through MIDI device" ON)
 
 if(${WITH_WEBSOCKETS})
 	option(LWS_WITH_UPNG "" OFF)
@@ -31,6 +32,12 @@ if(${WITH_WEBSOCKETS})
 	add_subdirectory(libwebsockets)
 endif()
 
+if(${WITH_PORTMIDI})
+	set(PORTMIDI_SRC src/vmxhost-midi.cc)
+else()
+	set(PORTMIDI_SRC)
+endif()
+
 add_executable(vmxethproxy
 	src/vmxethproxy.cc
 	src/proxycore.cc
@@ -47,10 +54,15 @@ add_executable(vmxethproxy
 	src/vmxprop.cc
 	src/vmxws.cc
 	util/os_gettime.c
+	${PORTMIDI_SRC}
 )
 
 if(${WITH_WEBSOCKETS})
 	target_link_libraries(vmxethproxy websockets)
+endif()
+
+if(${WITH_PORTMIDI})
+	target_link_libraries(vmxethproxy portmidi)
 endif()
 
 find_package(Boost REQUIRED)
