@@ -56,17 +56,6 @@ static int vmxhost_dummy_process(fd_set *, fd_set *, fd_set *, void *data)
 	return 0;
 }
 
-static void add_midi_sum_eox(std::vector<uint8_t> &midi, size_t ix)
-{
-	uint8_t sum = 0;
-
-	for (size_t i = ix; i < midi.size(); i++)
-		sum += midi[i];
-	sum &= 0x7F;
-	midi.push_back(sum ? 128 - sum : 0);
-	midi.push_back(0xF7);
-}
-
 static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 {
 	auto h = (struct vmxhost_dummy_s *)data;

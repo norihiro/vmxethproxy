@@ -43,17 +43,6 @@ template<typename T> bool parse_hexint(char *&buf, T &result)
 	return true;
 }
 
-static void add_midi_sum_eox(std::vector<uint8_t> &midi, size_t ix)
-{
-	uint8_t sum = 0;
-
-	for (size_t i = ix; i < midi.size(); i++)
-		sum += midi[i];
-	sum &= 0x7F;
-	midi.push_back(sum ? 128 - sum : 0);
-	midi.push_back(0xF7);
-}
-
 bool vmxpacket_from_string(vmxpacket_t *p, const char *str, uint8_t device_id)
 {
 	std::vector<char> buf_v(str, str + strlen(str) + 1);

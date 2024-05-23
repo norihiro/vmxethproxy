@@ -106,17 +106,6 @@ static bool is_basic_address(const vmxpacket_t *packet)
 	return false;
 }
 
-static void add_midi_sum_eox(std::vector<uint8_t> &midi, size_t ix)
-{
-	uint8_t sum = 0;
-
-	for (size_t i = ix; i < midi.size(); i++)
-		sum += midi[i];
-	sum &= 0x7F;
-	midi.push_back(sum ? 128 - sum : 0);
-	midi.push_back(0xF7);
-}
-
 static bool return_by_proxy(proxycore_t *p, const vmxpacket_t *packet, const void *sender, uint32_t sender_flags)
 {
 	if (sender_flags & PROXYCORE_INSTANCE_HOST)
