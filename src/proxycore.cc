@@ -71,6 +71,8 @@ static bool is_basic_address(const vmxpacket_t *packet)
 			return true;
 		else if (0x10000000 <= addr && addr < 0x10000004)
 			return true;
+		else if (0x10000008 == addr)
+			return true;
 		else if (0x10000010 <= addr && addr < 0x10000016)
 			return true;
 		else if (0x10000020 <= addr && addr < 0x10000021)
@@ -81,9 +83,21 @@ static bool is_basic_address(const vmxpacket_t *packet)
 			return true;
 		else if (0x10000100 <= addr && addr < 0x10000104)
 			return true;
-		else if (0x10000110 <= addr && addr < 0x1000012B)
+		else if (0x10000110 <= addr && addr < 0x10000113)
 			return true;
-		else if (0x10000200 <= addr && addr < 0x10000310)
+		else if (0x10000114 == addr)
+			return true;
+		else if (0x10000118 <= addr && addr < 0x1000011B)
+			return true;
+		else if (0x10000120 <= addr && addr < 0x10000123)
+			return true;
+		else if (0x10000124 == addr)
+			return true;
+		else if (0x10000128 <= addr && addr < 0x1000012B)
+			return true;
+		else if (0x10000200 == addr)
+			return true;
+		else if (0x10000210 <= addr && addr < 0x10000310)
 			return true;
 		else if (0x10001000 <= addr && addr < 0x1000210A)
 			return true;
