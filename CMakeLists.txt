@@ -53,6 +53,8 @@ if(${WITH_WEBSOCKETS})
 	target_link_libraries(vmxethproxy websockets)
 endif()
 
+find_package(Boost REQUIRED)
+target_include_directories(vmxethproxy PRIVATE ${Boost_INCLUDE_DIR})
 target_include_directories(vmxethproxy PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
