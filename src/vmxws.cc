@@ -1,4 +1,4 @@
-#ifndef _GNU_SOURCE
+#if !defined(__APPLE__) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE // for pipe2
 #endif
 #include <fcntl.h>
@@ -70,6 +70,22 @@ struct session_data_s
 {
 	struct vmxws_client_s *ctx;
 };
+
+#ifndef _GNU_SOURCE
+static int pipe2(int pipefd[2], int flags)
+{
+	int ret = pipe(pipefd);
+	if (ret)
+		return ret;
+
+	if (flags & O_CLOEXEC) {
+		fcntl(pipefd[0], F_SETFD, FD_CLOEXEC);
+		fcntl(pipefd[1], F_SETFD, FD_CLOEXEC);
+	}
+
+	return 0;
+}
+#endif
 
 static void ws_client_broadcast(vmxws_t *c, struct vmxws_client_s *cc_sender, const vmxpacket_t *pkt);
 
