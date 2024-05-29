@@ -83,7 +83,7 @@ int socket_moderator_mainloop(socket_moderator_t *s)
 			}
 		}
 
-		struct timeval tv = {timeout_us / 1000000, timeout_us % 1000000};
+		struct timeval tv = {timeout_us / 1000000, (int)(timeout_us % 1000000)};
 		int ret = select(nfds, &read_fds, &write_fds, &except_fds, &tv);
 		if (ret < 0) {
 			if (errno != EINTR)

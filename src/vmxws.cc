@@ -220,7 +220,7 @@ static struct lws_context *vmxws_routine_init(vmxws_t *c)
 static void *vmxws_routine(void *data)
 {
 	auto *c = (vmxws_t *)data;
-	int n;
+	int n = 0;
 	ASSERT_THREAD(lws);
 
 	struct lws_context *lws_ctx = vmxws_routine_init(c);
