@@ -26,4 +26,11 @@ uint32_t os_gettime_us()
 	return ((uint32_t)ts.tv_sec * 1000000 + (uint32_t)(ts.tv_nsec / 1000));
 }
 
+#else // __APPLE__
+
+uint32_t os_gettime_us()
+{
+    return (uint32_t)(clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1000);
+}
+
 #endif
