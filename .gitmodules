@@ -1,3 +1,6 @@
 [submodule "libwebsockets"]
 	path = libwebsockets
 	url = https://github.com/warmcat/libwebsockets.git
+[submodule "portmidi"]
+	path = portmidi
+	url = https://github.com/PortMidi/portmidi.git
