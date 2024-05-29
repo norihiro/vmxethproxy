@@ -1,0 +1,10 @@
+{
+	"instances": [
+		{
+			"id": "host-midi",
+			"settings": {
+				"list_devices": true
+			}
+		}
+	]
+}
