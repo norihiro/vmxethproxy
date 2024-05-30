@@ -75,7 +75,8 @@ bool vmxhost_midi_s::connect()
 		return false;
 	}
 
-	fprintf(stderr, "Info: opening output device %d and input device %d...\n", id_out, id_in);
+	fprintf(stderr, "Info: host-midi: opening output device %d for '%s' and input device %d for '%s'...\n", id_out,
+		name_out.c_str(), id_in, name_in.c_str());
 	PmError ret;
 
 	ret = Pm_OpenOutput(&stream_o, id_out, NULL, 1024, NULL, NULL, 0);
@@ -135,12 +136,14 @@ static void vmxhost_midi_set_prop(vmxhost_midi_t *h, vmx_prop_ref_t prop)
 	bool name_modified = false;
 
 	if (name.size() && name_in.size()) {
-		fprintf(stderr, "Error: name (%s) and name_in (%s) are exclusive settings.\n", name.c_str(), name_in.c_str());
+		fprintf(stderr, "Error: name (%s) and name_in (%s) are exclusive settings.\n", name.c_str(),
+			name_in.c_str());
 		exit(1);
 	}
 
 	if (name.size() && name_out.size()) {
-		fprintf(stderr, "Error: name (%s) and name_out (%s) are exclusive settings.\n", name.c_str(), name_out.c_str());
+		fprintf(stderr, "Error: name (%s) and name_out (%s) are exclusive settings.\n", name.c_str(),
+			name_out.c_str());
 		exit(1);
 	}
 
