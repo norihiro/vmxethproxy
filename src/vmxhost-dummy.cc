@@ -6,6 +6,8 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <map>
+#include <string>
+#include <fstream>
 #include "vmxethproxy.h"
 #include "vmxpacket.h"
 #include "vmxpacket-identify.h"
@@ -23,12 +25,21 @@ struct vmxhost_dummy_s
 
 	uint8_t device_id;
 	std::map<uint32_t, uint8_t> mem;
+
+	// config
+	std::string save_file;
 };
+
+static void load_from_file(vmxhost_dummy_t *h, const char *filename);
+static void save_to_file(const vmxhost_dummy_t *h, const char *filename);
 
 static void vmxhost_dummy_set_prop(vmxhost_dummy_t *h, vmx_prop_ref_t prop)
 {
-	(void)h;
-	(void)prop;
+	std::string load_file = prop.get<std::string>("load_file", "");
+	h->save_file = prop.get<std::string>("save_file", "");
+
+	if (load_file.size())
+		load_from_file(h, load_file.c_str());
 }
 
 static void *vmxhost_dummy_create(vmx_prop_ref_t pt)
@@ -131,7 +142,35 @@ static void vmxhost_dummy_destroy(void *ctx)
 {
 	auto h = (vmxhost_dummy_t *)ctx;
 	proxycore_remove_instance(h->proxy, proxy_callback, h);
+
+	if (h->save_file.size())
+		save_to_file(h, h->save_file.c_str());
 	delete h;
+}
+
+static void load_from_file(vmxhost_dummy_t *h, const char *filename)
+{
+	std::ifstream ifs(filename);
+	for (std::string line; std::getline(ifs, line); ) {
+		uint32_t a, v;
+		if (sscanf(line.c_str(), "%x%x", &a, &v) == 2)
+			h->mem[a] = v;
+	}
+}
+
+static void save_to_file(const vmxhost_dummy_t *h, const char *filename)
+{
+	FILE *fp = fopen(filename, "w");
+	if (!fp) {
+		fprintf(stderr, "Error: cannot open '%s' to write\n", filename);
+		return;
+	}
+
+	for (const auto x : h->mem) {
+		fprintf(fp, "%x\t%x\n", x.first, x.second);
+	}
+
+	fclose(fp);
 }
 
 extern "C" const vmxinstance_type_t vmxhost_dummy_type = {
