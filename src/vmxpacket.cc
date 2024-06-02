@@ -26,14 +26,21 @@ int vmxpacket_s::add_from_raw(const uint8_t *buf, size_t length)
 	if (length < exp_length)
 		return 0;
 
-	if (exp_length <= 8)
+	if (exp_length <= 8) {
+		fprintf(stderr, "Error: exp_length=%zd, where expected larger than 8\n", exp_length);
 		return -1;
+	}
 
-	if (exp_length & 3)
+	if (exp_length & 3) {
+		fprintf(stderr, "Error: exp_length=%zd, where expected multiple of 4\n", exp_length);
 		return -1;
+	}
 
-	if (buf[4] != 0x00 || buf[5] != 0x00 || buf[6] != 0x00 || buf[7] != 0x00)
+	if (buf[4] != 0x00 || buf[5] != 0x00 || buf[6] != 0x00 || buf[7] != 0x00) {
+		fprintf(stderr, "Error: byte-4 to byte-7 should be all 0 but got %x %x %x %x\n", buf[4], buf[5], buf[6],
+			buf[7]);
 		return -1;
+	}
 
 	aux = buf[8] >> 4;
 	for (size_t i = 8; i < exp_length; i += 4) {
