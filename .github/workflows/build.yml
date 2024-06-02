@@ -17,13 +17,14 @@ jobs:
       with:
         submodules: true
 
-    - name: Install libraries
+    - name: Install libraries and tools
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           libboost-dev \
           libportmidi0 libportmidi-dev \
-          libcmocka0 libcmocka-dev
+          libcmocka0 libcmocka-dev \
+          gcovr
 
     - name: Configure
       run: |
@@ -38,4 +39,20 @@ jobs:
 
     - name: Test
       run: |
-        cd build && make test
+        (cd build && make test)
+        gcovr_opt=(
+          -e 'test/.*'
+        )
+        gcovr "${gcovr_opt[@]}" --json-summary > gcovr-summary.json
+        mkdir gcovr-details
+        gcovr "${gcovr_opt[@]}" --html-details -o gcovr-details/index.html
+        tar czf gcovr-details.tar.gz -C gcovr-details .
+        echo '## Coverage report' >> $GITHUB_STEP_SUMMARY
+        .github/scripts/gcovr-summary-to-md.py gcovr-summary.json >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload coverage
+      uses: actions/upload-artifact@v4
+      with:
+        name: gcovr-details-html
+        path: |
+          gcovr-details.tar.gz
