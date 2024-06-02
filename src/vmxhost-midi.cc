@@ -118,7 +118,7 @@ static bool set_name(std::string &dest, const std::string &src1, const std::stri
 	return false;
 }
 
-static void vmxhost_midi_set_prop(vmxhost_midi_t *h, vmx_prop_ref_t prop)
+static void vmxhost_midi_set_prop(vmxhost_midi_t *h, vmx_prop_ref_t prop, bool first)
 {
 	std::string name = prop.get<std::string>("name", "");
 	std::string name_in = prop.get<std::string>("name_in", "");
@@ -145,7 +145,7 @@ static void vmxhost_midi_set_prop(vmxhost_midi_t *h, vmx_prop_ref_t prop)
 
 	name_modified |= set_name(h->name_in, name, name_in);
 	name_modified |= set_name(h->name_out, name, name_out);
-	if (name_modified) {
+	if (name_modified || first) {
 		h->disconnect();
 		h->connect();
 	}
@@ -155,7 +155,7 @@ static void *vmxhost_midi_create(vmx_prop_ref_t pt)
 {
 	auto h = new struct vmxhost_midi_s;
 
-	vmxhost_midi_set_prop(h, pt);
+	vmxhost_midi_set_prop(h, pt, true);
 
 	return h;
 }
