@@ -71,7 +71,7 @@ int vmxpacket_s::add_from_raw(const uint8_t *buf, size_t length)
 
 static bool is_dt1(const std::vector<uint8_t> &midi)
 {
-	if (midi.size() < 6)
+	if (midi.size() < 7)
 		return false;
 	if (midi[0] == 0xF0 && midi[1] == 0x41 && midi[6] == 0x12)
 		return true;
