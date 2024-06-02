@@ -151,7 +151,7 @@ static void vmxhost_dummy_destroy(void *ctx)
 static void load_from_file(vmxhost_dummy_t *h, const char *filename)
 {
 	std::ifstream ifs(filename);
-	for (std::string line; std::getline(ifs, line); ) {
+	for (std::string line; std::getline(ifs, line);) {
 		uint32_t a, v;
 		if (sscanf(line.c_str(), "%x%x", &a, &v) == 2)
 			h->mem[a] = v;
