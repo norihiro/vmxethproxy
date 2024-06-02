@@ -30,7 +30,7 @@ uint32_t os_gettime_us()
 
 uint32_t os_gettime_us()
 {
-    return (uint32_t)(clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1000);
+	return (uint32_t)(clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1000);
 }
 
 #endif

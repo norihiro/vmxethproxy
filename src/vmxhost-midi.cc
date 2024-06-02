@@ -240,9 +240,9 @@ static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 }
 
 static const struct socket_info_s socket_info = {
-	NULL, /* set_fds */
+	NULL, // set_fds
 	vmxhost_midi_timeout_us,
-	NULL, /* process */
+	NULL, // process
 };
 
 static void vmxhost_midi_start(void *ctx, socket_moderator_t *s, proxycore_t *p)
