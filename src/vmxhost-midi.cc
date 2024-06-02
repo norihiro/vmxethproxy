@@ -32,6 +32,7 @@ struct vmxhost_midi_s
 };
 
 static void vmxhost_midi_destroy(void *ctx);
+static int process_received(struct vmxhost_midi_s *h);
 
 static void list_devices()
 {
@@ -179,19 +180,52 @@ static uint32_t vmxhost_midi_timeout_us(void *data)
 	if (h->stream_i) {
 		PmError hasData = Pm_Poll(h->stream_i);
 		if (hasData) {
-			// TODO: receive stream
-			// TODO: process the received data
+			PmEvent buffer[128];
+			int n = Pm_Read(h->stream_i, buffer, 128);
+			for (int i = 0; i < n; i++) {
+				h->buf_recv.push_back(buffer[i].message & 0xFF);
+				h->buf_recv.push_back((buffer[i].message >> 8) & 0xFF);
+				h->buf_recv.push_back((buffer[i].message >> 16) & 0xFF);
+				h->buf_recv.push_back((buffer[i].message >> 24) & 0xFF);
+			}
+
+			process_received(h);
 		}
 	}
 
 	return 1280; // time for 4-byte
 }
 
+static int consume_midi_bytes(vmxpacket_t &pkt, const std::vector<uint8_t> &buf)
+{
+	int i_begin = -1;
+	int i_end = -1;
+	for (int i = 0; (size_t)i < buf.size(); i++) {
+		if (buf[i] == 0xF0 && i_begin < 0)
+			i_begin = i;
+		if (buf[i] == 0xF7 && i_end < 0 && i_begin >= 0)
+			i_end = i + 1;
+	}
+	if (i_begin < 0 || i_end < 0)
+		return 0;
+
+	std::vector<uint8_t> midi(buf.begin() + i_begin, buf.begin() + i_end);
+	pkt.modify_midi() = midi;
+	pkt.make_raw();
+
+	return i_end;
+}
+
 static int process_received(struct vmxhost_midi_s *h)
 {
 	h->last_received_us = os_gettime_us();
 	vmxpacket_t pkt;
-	int consumed = 0; // TODO: Process data in `buf_recv` and set into `pkt`.
+
+	int consumed = consume_midi_bytes(pkt, h->buf_recv);
+	if (consumed == 0)
+		return 0;
+
+	h->buf_recv.erase(h->buf_recv.begin(), h->buf_recv.begin() + consumed);
 
 	if (pkt.raw.size() == 0 && pkt.midi.size() == 0)
 		return 0;
@@ -216,11 +250,17 @@ static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 {
 	auto h = (struct vmxhost_midi_s *)data;
 
-	(void)h; (void)packet; // TODO: Send `packet` to `stream_o`.
+	const auto &midi = packet->midi;
 
 	// Control Change: Bnh mmh llh
 	// Program Change: Cnh pph
+	// Above message types are ignored.
+
 	// System Exclusive Message: F0h ... F7h (IDReq, IDReply, RQ1, DT1, MCS stop play record, V-Link)
+	if (midi.size() > 2 && midi[0] == 0xF0 && midi[midi.size() - 1] == 0xF7) {
+		auto midi_copy = midi;
+		Pm_WriteSysEx(h->stream_o, 0, &midi_copy[0]);
+	}
 }
 
 static const struct socket_info_s socket_info = {
