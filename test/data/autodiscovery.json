@@ -1,0 +1,10 @@
+{
+	"instances": [
+		{
+			"id": "host-eth",
+			"settings": {
+				"discovery-broadcast": "127.0.0.1"
+			}
+		}
+	]
+}

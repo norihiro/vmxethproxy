@@ -1,0 +1,28 @@
+{
+	"instances": [
+		{
+			"id": "host-dummy",
+			"settings": { }
+		},
+		{
+			"id": "server",
+			"settings": {
+				"primary": true,
+				"port": 33752,
+				"name": "Dummy"
+			}
+		},
+		{
+			"id": "server",
+			"settings": {
+				"primary": false,
+				"port": 33753,
+				"name": "secondary",
+				"listen-udp": false
+			}
+		},
+		{
+			"id": "monitor"
+		}
+	]
+}

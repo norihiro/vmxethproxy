@@ -1,0 +1,18 @@
+{
+	"instances": [
+		{
+			"id": "host-eth",
+			"settings": { 
+				"host": "127.0.0.1",
+				"port": 33752
+			}
+		},
+		{
+			"id": "ws",
+			"settings": {
+				"port": 7681,
+				"http_origin": "./"
+			}
+		}
+	]
+}
