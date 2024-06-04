@@ -1,17 +1,28 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <map>
 #include "vmxethproxy.h"
 #include "vmxpacket.h"
 #include "proxycore.h"
 #include "vmxpacket-identify.h"
 #include "vmxinstance.h"
+#include "socket-moderator.h"
+#include "util/platform.h"
 
 typedef struct vmxmonitor_s vmxmonitor_t;
 
 struct vmxmonitor_s
 {
 	proxycore_t *proxy = nullptr;
+
+	std::map<uint32_t, uint8_t> mem;
+	uint32_t last_saved_us = 0;
+	bool mem_modified = false;
+
+	// config
+	std::string save_file;
+	uint32_t save_period_us = 0;
 };
 
 static void monitor_midi(const vmxpacket_t *packet, const void *sender)
@@ -47,8 +58,18 @@ static void monitor_midi(const vmxpacket_t *packet, const void *sender)
 	}
 }
 
-static void proxy_callback(const vmxpacket_t *packet, const void *sender, void *)
+static void proxy_callback(const vmxpacket_t *packet, const void *sender, void *ctx)
 {
+	auto c = (vmxmonitor_t *)ctx;
+
+	if (vmxpacket_is_midi_dt1(packet)) {
+		uint32_t addr = packet->dt_address_packed();
+		uint32_t size = packet->dt_size_packed();
+		for (uint32_t i = 0; i < size; i++)
+			c->mem[addr + i] = packet->midi[11 + i];
+		c->mem_modified = true;
+	}
+
 	const auto &raw = packet->raw;
 
 	if (raw.size() >= 12 && raw[0] == 0x02) {
@@ -65,16 +86,71 @@ static void proxy_callback(const vmxpacket_t *packet, const void *sender, void *
 	}
 }
 
-static void *vmxmonitor_create(vmx_prop_ref_t)
+static void vmxmonitor_set_prop(vmxmonitor_s *c, vmx_prop_ref_t prop)
+{
+	c->save_file = prop.get<std::string>("save_file", "");
+	c->save_period_us = (uint32_t)(prop.get<float>("save_period", 0.0f) * 1e6);
+}
+
+static void *vmxmonitor_create(vmx_prop_ref_t prop)
 {
 	auto *c = new vmxmonitor_s;
+
+	vmxmonitor_set_prop(c, prop);
+
 	return c;
 }
 
-static void vmxmonitor_start(void *ctx, socket_moderator_t *, proxycore_t *p)
+static void save_to_file(const vmxmonitor_t *c)
+{
+	std::string filename = c->save_file + "~";
+	printf("Saving to %s\n", filename.c_str());
+	FILE *fp = fopen(filename.c_str(), "w");
+	if (!fp) {
+		fprintf(stderr, "Error: cannot open '%s' to write\n", filename.c_str());
+		return;
+	}
+
+	for (const auto x : c->mem)
+		fprintf(fp, "%x\t%x\n", x.first, x.second);
+
+	fclose(fp);
+
+	std::rename(filename.c_str(), c->save_file.c_str());
+}
+
+static uint32_t vmxmonitor_timeout_us(void *ctx)
+{
+	auto c = (vmxmonitor_t *)ctx;
+
+	if (!c->save_period_us)
+		return std::numeric_limits<uint32_t>::max();
+
+	if (!c->mem_modified)
+		return c->save_period_us;
+
+	uint32_t ts = os_gettime_us();
+	if ((ts - c->last_saved_us) < c->save_period_us)
+		return c->save_period_us - (ts - c->last_saved_us);
+
+	save_to_file(c);
+	c->mem_modified = false;
+	c->last_saved_us = ts;
+
+	return c->save_period_us;
+}
+
+static const struct socket_info_s socket_info = {
+	nullptr, // set_fds
+	vmxmonitor_timeout_us,
+	nullptr, // process
+};
+
+static void vmxmonitor_start(void *ctx, socket_moderator_t *s, proxycore_t *p)
 {
 	auto c = (vmxmonitor_t *)ctx;
 	c->proxy = p;
+	socket_moderator_add(s, &socket_info, c);
 	proxycore_add_instance(p, proxy_callback, c, PROXYCORE_INSTANCE_MONITOR);
 }
 
@@ -83,6 +159,9 @@ static void vmxmonitor_destroy(void *ctx)
 	auto c = (vmxmonitor_t *)ctx;
 	if (c->proxy)
 		proxycore_remove_instance(c->proxy, proxy_callback, c);
+
+	if (c->save_file.size())
+		save_to_file(c);
 
 	delete c;
 }
