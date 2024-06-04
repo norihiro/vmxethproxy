@@ -51,24 +51,6 @@ static void *vmxhost_dummy_create(vmx_prop_ref_t pt)
 	return h;
 }
 
-static int vmxhost_dummy_set_fds(fd_set *, fd_set *, fd_set *, void *)
-{
-	return 0;
-}
-
-static uint32_t vmxhost_dummy_timeout_us(void *)
-{
-	return 10000;
-}
-
-static int vmxhost_dummy_process(fd_set *, fd_set *, fd_set *, void *data)
-{
-	auto h = (struct vmxhost_dummy_s *)data;
-	(void)h;
-
-	return 0;
-}
-
 static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 {
 	auto h = (struct vmxhost_dummy_s *)data;
@@ -124,17 +106,10 @@ static void proxy_callback(const vmxpacket_t *packet, const void *, void *data)
 	}
 }
 
-static const struct socket_info_s socket_info = {
-	vmxhost_dummy_set_fds,
-	vmxhost_dummy_timeout_us,
-	vmxhost_dummy_process,
-};
-
-static void vmxhost_dummy_start(void *ctx, socket_moderator_t *s, proxycore_t *p)
+static void vmxhost_dummy_start(void *ctx, socket_moderator_t *, proxycore_t *p)
 {
 	auto h = (vmxhost_dummy_t *)ctx;
 	h->proxy = p;
-	socket_moderator_add(s, &socket_info, h);
 	proxycore_add_instance(p, proxy_callback, h, PROXYCORE_INSTANCE_HOST);
 }
 
