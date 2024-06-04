@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdint>
 #undef NDEBUG
 #include <cassert>
 
@@ -7,7 +8,9 @@
 
 using namespace std;
 
-int test_set(const vector<pair<int, int>> &v)
+typedef uint32_t value_t;
+
+int test_set(const vector<pair<value_t, value_t>> &v)
 {
 	for (int i = 0; i < v.size(); i++) {
 		if (v[i].first >= v[i].second) {
@@ -28,11 +31,11 @@ int main(int argc, char **argv)
 {
 	int ret = 0;
 
-	for (int a = 0; a < 18; a += 2) {
-		for (int b = a + 2; b < 18; b += 2) {
-			for (int c = 0; c < 18; c += 2) {
-				for (int d = c + 2; d < 18; d += 2) {
-					rangeset<int> r;
+	for (value_t a = 1; a < 19; a += 2) {
+		for (value_t b = a + 2; b < 19; b += 2) {
+			for (value_t c = 0; c < 19; c += 2) {
+				for (value_t d = c + 2; d < 19; d += 2) {
+					rangeset<value_t> r;
 					r.add(a, b);
 					r.add(c, d);
 					printf("[%d %d) [%d %d) =>", a, b, c, d);
@@ -42,7 +45,7 @@ int main(int argc, char **argv)
 
 					ret |= test_set(r.set);
 
-					for (int i = -1; i <= 18; i++) {
+					for (value_t i = 0; i <= 19; i++) {
 						bool actual = r.test(i);
 						bool expected = (a <= i && i < b) || (c <= i && i < d);
 						if (actual != expected) {
@@ -56,31 +59,39 @@ int main(int argc, char **argv)
 		}
 	}
 
-	for (int a = -4; a <= 32; a += 2) {
-		for (int b = a + 2; b <= 34; b += 2) {
-			rangeset<int> r;
-			r.add(0, 6);
-			r.add(12, 18);
-			r.add(24, 30);
+	for (value_t a = 4; a <= 40; a += 2) {
+		for (value_t b = a + 2; b <= 42; b += 2) {
+			rangeset<value_t> r;
+			r.add(8, 14);
+			r.add(20, 26);
+			r.add(32, 38);
 			r.add(a, b);
 
-			printf("[0 6) [12 18) [24 30) [%d %d) =>", a, b);
-			for (int i = 0; i < r.set.size(); i++)
-				printf(" [%d %d)", r.set[i].first, r.set[i].second);
+			printf("[8 14) [20 26) [32 38) [%d %d) =>", a, b);
+			for (value_t i = 8; i < r.set.size(); i++)
+				printf(" [%u %u)", r.set[i].first, r.set[i].second);
 			printf("\n");
 
 			ret |= test_set(r.set);
 
-			for (int i = -5; i <= 35; i++) {
-				bool expected = (0 <= i && i < 6) || (12 <= i && i < 18) || (24 <= i && i < 30) ||
+			for (value_t i = 3; i <= 43; i++) {
+				bool expected = (8 <= i && i < 14) || (20 <= i && i < 26) || (32 <= i && i < 38) ||
 						(a <= i && i < b);
 				bool actual = r.test(i);
 				if (actual != expected) {
-					printf("Error: a=%d b=%d i=%d actual=%d expected=%d\n", a, b, i, actual,
+					printf("Error: a=%u b=%u i=%u actual=%d expected=%d\n", a, b, i, actual,
 					       expected);
 					ret = 1;
 				}
 			}
+		}
+	}
+
+	{
+		rangeset<value_t> r;
+		if (r.test(0)) {
+			printf("Error: empty rangeset: expected `test` returns false but got true.\n");
+			ret = 1;
 		}
 	}
 
