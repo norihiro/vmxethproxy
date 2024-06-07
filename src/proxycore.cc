@@ -108,64 +108,61 @@ static bool is_basic_address(const vmxpacket_t *packet)
 
 static bool return_by_proxy(proxycore_t *p, const vmxpacket_t *packet, const void *sender, uint32_t sender_flags)
 {
-	if (sender_flags & PROXYCORE_INSTANCE_HOST)
+	if (sender_flags & (PROXYCORE_INSTANCE_HOST | PROXYCORE_INSTANCE_PRIMARY))
 		return false;
 
-	if ((sender_flags & (PROXYCORE_INSTANCE_HOST | PROXYCORE_INSTANCE_PRIMARY)) == 0) {
-		// This device is not supposed to be there. Hide from the host nor primary.
+	/* Devices other than host nor primary are not supposed to be there.
+	 * Try to hide from the host or primary. */
 
-		if (vmxpacket_is_midi_idreq(packet) && p->host_id >= 0) {
-			vmxpacket_t pkt_reply;
-			// clang-format off
-			pkt_reply.modify_midi() = std::vector<uint8_t>{
-				0xF0, 0x7E, (uint8_t)p->host_id, // Device ID
-				0x06, 0x02, // ID reply
-				0x41, 0x24, 0x02, 0x00, 0x03, // manufacturer and device ID
-				p->host_id_revision[0], p->host_id_revision[1], p->host_id_revision[2],
-				p->host_id_revision[3], // software revision
-				0xF7 };
-			// clang-format on
-			pkt_reply.make_raw();
+	if (vmxpacket_is_midi_idreq(packet) && p->host_id >= 0) {
+		vmxpacket_t pkt_reply;
+		// clang-format off
+		pkt_reply.modify_midi() = std::vector<uint8_t>{
+			0xF0, 0x7E, (uint8_t)p->host_id, // Device ID
+			0x06, 0x02, // ID reply
+			0x41, 0x24, 0x02, 0x00, 0x03, // manufacturer and device ID
+			p->host_id_revision[0], p->host_id_revision[1], p->host_id_revision[2],
+			p->host_id_revision[3], // software revision
+			0xF7 };
+		// clang-format on
+		pkt_reply.make_raw();
 
-			if (reply_to_sender(p, &pkt_reply, sender))
-				return true;
+		if (reply_to_sender(p, &pkt_reply, sender))
+			return true;
+	}
+
+	if (vmxpacket_is_midi_rq1(packet) && is_basic_address(packet)) {
+		int addr = packet->dt_address_packed();
+		int size = packet->dt_size_packed();
+		for (int i = 0; i < size; i++) {
+			if (p->dt1_cache.count(addr + i) == 0)
+				return false;
 		}
 
-		if (vmxpacket_is_midi_rq1(packet) && is_basic_address(packet)) {
-			int addr = packet->dt_address_packed();
-			int size = packet->dt_size_packed();
-			for (int i = 0; i < size; i++) {
-				if (p->dt1_cache.count(addr + i) == 0)
-					return false;
-			}
+		vmxpacket_t pkt_reply;
+		auto &midi = pkt_reply.modify_midi();
+		midi = std::vector<uint8_t>{
+			0xF0,
+			0x41,
+			(uint8_t)(p->host_id & 0x7F),
+			0x00,
+			0x00,
+			0x24,
+			0x12, // DT1
+			(uint8_t)((addr >> 21) & 0x7F),
+			(uint8_t)((addr >> 14) & 0x7F), // address MSP
+			(uint8_t)((addr >> 7) & 0x7F),
+			(uint8_t)(addr & 0x7F), // address LSB
+		};
 
-			vmxpacket_t pkt_reply;
-			auto &midi = pkt_reply.modify_midi();
-			midi = std::vector<uint8_t>{
-				0xF0,
-				0x41,
-				(uint8_t)(p->host_id & 0x7F),
-				0x00,
-				0x00,
-				0x24,
-				0x12, // DT1
-				(uint8_t)((addr >> 21) & 0x7F),
-				(uint8_t)((addr >> 14) & 0x7F), // address MSP
-				(uint8_t)((addr >> 7) & 0x7F),
-				(uint8_t)(addr & 0x7F), // address LSB
-			};
+		for (int i = 0; i < size; i++)
+			midi.push_back(p->dt1_cache[addr + i]);
 
-			for (int i = 0; i < size; i++)
-				midi.push_back(p->dt1_cache[addr + i]);
-
-			add_midi_sum_eox(midi, 7);
-			if (pkt_reply.make_raw()) {
-				reply_to_sender(p, &pkt_reply, sender);
-				return true;
-			}
+		add_midi_sum_eox(midi, 7);
+		if (pkt_reply.make_raw()) {
+			reply_to_sender(p, &pkt_reply, sender);
+			return true;
 		}
-
-		// TODO: return reserved address
 	}
 
 	return false;
