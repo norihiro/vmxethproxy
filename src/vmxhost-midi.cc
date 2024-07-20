@@ -147,7 +147,10 @@ static void vmxhost_midi_set_prop(vmxhost_midi_t *h, vmx_prop_ref_t prop, bool f
 	name_modified |= set_name(h->name_out, name, name_out);
 	if (name_modified || first) {
 		h->disconnect();
-		h->connect();
+		if (!h->connect()) {
+			fprintf(stderr, "Failed to initialize MIDI connection.\n");
+			exit(1);
+		}
 	}
 }
 
