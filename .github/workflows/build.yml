@@ -24,7 +24,11 @@ jobs:
           libboost-dev \
           libportmidi0 libportmidi-dev \
           libcmocka0 libcmocka-dev \
-          gcovr
+          gcovr \
+          python3-venv
+        python3 -m venv .venv
+        . .venv/bin/activate
+        pip install websockets
 
     - name: Configure
       run: |
@@ -39,6 +43,7 @@ jobs:
 
     - name: Test
       run: |
+        . .venv/bin/activate
         (cd build && make test)
         gcovr_opt=(
           -e 'test/.*'
