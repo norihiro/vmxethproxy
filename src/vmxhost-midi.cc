@@ -191,10 +191,12 @@ static int consume_midi_bytes(vmxpacket_t &pkt, const std::vector<uint8_t> &buf)
 	int i_begin = -1;
 	int i_end = -1;
 	for (int i = 0; (size_t)i < buf.size(); i++) {
-		if (buf[i] == 0xF0 && i_begin < 0)
+		if (buf[i] == 0xF0)
 			i_begin = i;
-		if (buf[i] == 0xF7 && i_end < 0 && i_begin >= 0)
+		if (buf[i] == 0xF7 && i_begin >= 0) {
 			i_end = i + 1;
+			break;
+		}
 	}
 	if (i_begin < 0)
 		return (int)buf.size();
@@ -209,9 +211,9 @@ static int consume_midi_bytes(vmxpacket_t &pkt, const std::vector<uint8_t> &buf)
 
 static void process_received(struct vmxhost_midi_s *h)
 {
-	vmxpacket_t pkt;
-
 	while (h->buf_recv.size() > 0) {
+		vmxpacket_t pkt;
+
 		int consumed = consume_midi_bytes(pkt, h->buf_recv);
 		if (consumed == 0)
 			return;
