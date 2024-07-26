@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <assert.h>
 #include <mutex>
 #include <list>
 #include <queue>
@@ -211,6 +212,7 @@ static struct lws_context *vmxws_routine_init(vmxws_t *c)
 
 	c->protocols[idx++] = {"ws", callback_ws, sizeof(session_data_s), 512, 0, c, 0};
 	c->protocols[idx++] = LWS_PROTOCOL_LIST_TERM;
+	assert(idx <= (int)(sizeof(c->protocols) / sizeof(*c->protocols)));
 
 	lws_set_log_level(LLL_USER | LLL_ERR | LLL_WARN, NULL);
 	struct lws_context_creation_info info;
