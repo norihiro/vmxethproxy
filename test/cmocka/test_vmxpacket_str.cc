@@ -7,10 +7,11 @@ extern "C" {
 
 #include "vmxpacket.h"
 
-#define assert_vector_equal(v1, v2) do { \
-	assert_int_equal((v1).size(), (v2).size()); \
-	assert_memory_equal((v1).data(), (v2).data(), (v2).size()); \
-} while(0)
+#define assert_vector_equal(v1, v2)                                         \
+	do {                                                                \
+		assert_int_equal((v1).size(), (v2).size());                 \
+		assert_memory_equal((v1).data(), (v2).data(), (v2).size()); \
+	} while (0)
 
 typedef std::vector<uint8_t> data_t;
 
@@ -25,7 +26,8 @@ static void test_parse_success(void **)
 	assert_vector_equal(pkt.midi, exp);
 
 	assert_int_equal(vmxpacket_from_string(&pkt, "RQ1 05060708 40302010", 0x40), true);
-	exp = std::vector<uint8_t>({0xF0, 0x41, 0x40, 0x00, 0x00, 0x24, 0x11, 0x05, 0x06, 0x07, 0x08, 0x40, 0x30, 0x20, 0x10});
+	exp = std::vector<uint8_t>(
+		{0xF0, 0x41, 0x40, 0x00, 0x00, 0x24, 0x11, 0x05, 0x06, 0x07, 0x08, 0x40, 0x30, 0x20, 0x10});
 	add_midi_sum_eox(exp, 7);
 	assert_vector_equal(pkt.midi, exp);
 }
@@ -201,10 +203,8 @@ static void test_parse_tcp_stream(void **)
 int main()
 {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(test_parse_success),
-		cmocka_unit_test(test_parse_failures),
-		cmocka_unit_test(test_vmxpacket_h),
-		cmocka_unit_test(test_add_from_raw),
+		cmocka_unit_test(test_parse_success),    cmocka_unit_test(test_parse_failures),
+		cmocka_unit_test(test_vmxpacket_h),      cmocka_unit_test(test_add_from_raw),
 		cmocka_unit_test(test_parse_tcp_stream),
 	};
 
