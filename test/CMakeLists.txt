@@ -27,4 +27,6 @@ add_test(NAME run-vmxpacket_test COMMAND vmxpacket_test)
 
 add_test(NAME run-dummy COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/run-dummy.sh ../vmxethproxy)
 
+add_test(NAME run-autoport COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/run-autoport.sh ../vmxethproxy)
+
 add_subdirectory(cmocka)

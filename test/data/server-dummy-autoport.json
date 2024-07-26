@@ -1,0 +1,18 @@
+{
+	"instances": [
+		{
+			"id": "host-dummy",
+			"settings": { }
+		},
+		{
+			"id": "server",
+			"settings": {
+				"primary": true,
+				"name": "Dummy"
+			}
+		},
+		{
+			"id": "monitor"
+		}
+	]
+}
