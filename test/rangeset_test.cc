@@ -4,7 +4,7 @@
 #include <cassert>
 
 #define RANGESET_TEST
-#include "rangeset.h"
+#include "util/rangeset.h"
 
 using namespace std;
 

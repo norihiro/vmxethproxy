@@ -15,7 +15,7 @@
 #include "socket-moderator.h"
 #include "src/vmxpacket-identify.h"
 #include "proxycore.h"
-#include "rangeset.h"
+#include "util/rangeset.h"
 #include "vmxinstance.h"
 
 // #define DEBUG_THREAD
