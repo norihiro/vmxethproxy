@@ -170,7 +170,7 @@ static int process_received(vmxserver_client_t *c)
 
 	proxycore_process_packet(c->proxy, &pkt, c, sender_flags);
 
-	if (consumed > 0 && c->buf_recv.size() > 0)
+	if (c->buf_recv.size() > 0)
 		return process_received(c);
 
 	return 0;
