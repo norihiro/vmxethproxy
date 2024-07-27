@@ -345,8 +345,7 @@ static void ws_client_broadcast(vmxws_t *c, struct vmxws_client_s *cc_sender, co
 	for (struct vmxws_client_s *cc : c->clients) {
 		if (cc == cc_sender)
 			continue;
-		// TODO: check not only the begining but also any addresses are in the range.
-		if (cc->addresses.test(pkt->dt_address_packed())) {
+		if (cc->addresses.test(pkt->dt_address_packed(), pkt->dt_address_packed() + pkt->dt_size_packed())) {
 			cc->write_queue.push(str);
 			lws_callback_on_writable(cc->wsi);
 		}
