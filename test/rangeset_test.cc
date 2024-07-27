@@ -27,6 +27,15 @@ int test_set(const vector<pair<value_t, value_t>> &v)
 	return 0;
 }
 
+static bool overwrap(value_t a, value_t b, value_t i, value_t j)
+{
+	if (j <= a)
+		return false;
+	if (b <= i)
+		return false;
+	return true;
+}
+
 int main(int argc, char **argv)
 {
 	int ret = 0;
@@ -68,9 +77,16 @@ int main(int argc, char **argv)
 			r.add(a, b);
 
 			printf("[8 14) [20 26) [32 38) [%d %d) =>", a, b);
-			for (value_t i = 8; i < r.set.size(); i++)
+			for (value_t i = 0; i < r.set.size(); i++)
 				printf(" [%u %u)", r.set[i].first, r.set[i].second);
 			printf("\n");
+
+			for (value_t i = 1; i < r.set.size(); i++) {
+				if (r.set[i - 1].second >= r.set[i].first) {
+					printf("Error: wrong order %d >= %d\n", r.set[i - 1].second, r.set[i].first);
+					ret = 1;
+				}
+			}
 
 			ret |= test_set(r.set);
 
@@ -82,6 +98,19 @@ int main(int argc, char **argv)
 					printf("Error: a=%u b=%u i=%u actual=%d expected=%d\n", a, b, i, actual,
 					       expected);
 					ret = 1;
+				}
+			}
+
+			for (value_t i = 3; i < 43; i++) {
+				for (value_t j = i + 1; j <= 43; j++) {
+					bool expected = overwrap(8, 14, i, j) || overwrap(20, 26, i, j) ||
+							overwrap(32, 38, i, j) || overwrap(a, b, i, j);
+					bool actual = r.test(i, j);
+					if (actual != expected) {
+						printf("Error: a=%u b=%u i=%u j=%u actual=%d expected=%d\n", a, b, i, j,
+						       actual, expected);
+						ret = 1;
+					}
 				}
 			}
 		}
