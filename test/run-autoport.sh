@@ -3,11 +3,11 @@
 vmxethproxy="$(readlink -f "$1")"
 data="$(dirname "$0")/data"
 
-timeout 4 \
+timeout -k 1 4 \
 $vmxethproxy -c $data/server-dummy-autoport.json &
 pid_dummy=$!
 
-timeout 2 \
+timeout -k 1 2 \
 $vmxethproxy -c $data/autodiscovery.json &
 pid_autodiscovery=$!
 
