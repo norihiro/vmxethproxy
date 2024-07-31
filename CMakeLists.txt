@@ -46,12 +46,12 @@ add_executable(vmxethproxy
 	src/vmxpacket-identify.cc
 	src/misc.cc
 	src/vmxprop.cc
-	src/vmxws.cc
 	util/os_gettime.c
 )
 
 if(${WITH_WEBSOCKETS})
 	target_link_libraries(vmxethproxy websockets)
+	target_sources(vmxethproxy PRIVATE src/vmxws.cc)
 endif()
 
 if(${WITH_PORTMIDI})
