@@ -23,5 +23,6 @@
 
 #cmakedefine WITH_WEBSOCKETS
 #cmakedefine WITH_PORTMIDI
+#cmakedefine WITH_LIBLO
 
 #endif // CONFIG_MACRO_H
