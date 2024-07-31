@@ -32,12 +32,6 @@ if(${WITH_WEBSOCKETS})
 	add_subdirectory(libwebsockets)
 endif()
 
-if(${WITH_PORTMIDI})
-	set(PORTMIDI_SRC src/vmxhost-midi.cc)
-else()
-	set(PORTMIDI_SRC)
-endif()
-
 add_executable(vmxethproxy
 	src/vmxethproxy.cc
 	src/proxycore.cc
@@ -54,7 +48,6 @@ add_executable(vmxethproxy
 	src/vmxprop.cc
 	src/vmxws.cc
 	util/os_gettime.c
-	${PORTMIDI_SRC}
 )
 
 if(${WITH_WEBSOCKETS})
@@ -71,6 +64,7 @@ if(${WITH_PORTMIDI})
 		target_link_directories(vmxethproxy PRIVATE ${CMAKE_BINARY_DIR}/portmidi/pm_common)
 	endif()
 	target_link_libraries(vmxethproxy portmidi)
+	target_sources(vmxethproxy PRIVATE src/vmxhost-midi.cc)
 endif()
 
 find_package(Boost REQUIRED)
